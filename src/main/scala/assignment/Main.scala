@@ -8,6 +8,10 @@ import zio._
  *    - Routing
  *    - Logging
  *    - ?Auth?
+ *    - Tests
+ *    - Docs
+ *    - Dockerize
+ *    - Setup CI
  */
 object Main extends zio.App:
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
