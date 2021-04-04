@@ -11,8 +11,18 @@ import zio._
  *    - Domain errors
  */
 trait Api:
-  def createBlog(name: Blog.Name, posts: List[(Option[Post.Title], Post.Body)]): UIO[Blog.Id]
-  def createPost(blogId: Blog.Id, title: Post.Title, body: Post.Body): UIO[Post.Id]
-  def queryBlogs(query: Query): UIO[List[Blog]]
-      
+  val api: Api.Service
+
+object Api:
+  trait Service:
+    def createBlog(name: Blog.Name, posts: List[(Option[Post.Title], Post.Body)]): UIO[Blog.Id]
+    def createPost(blogId: Blog.Id, title: Post.Title, body: Post.Body): UIO[Post.Id]
+    def queryBlogs(query: Query): UIO[List[Blog]]
+    def dummy(): UIO[Unit]
+    
+  def dummy(): URIO[Has[Api], Unit] =
+    ZIO.accessM(_.get.api.dummy())
+    
+  def createBlog(name: Blog.Name, posts: List[(Option[Post.Title], Post.Body)]): URIO[Api, Blog.Id] =
+    ZIO.accessM(_.api.createBlog(name, posts))
 
