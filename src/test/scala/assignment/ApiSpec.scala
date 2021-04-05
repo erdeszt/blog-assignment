@@ -14,12 +14,12 @@ class ApiSpec extends JUnitRunnableSpec:
 
   val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] = 
     ZLayer.fromEffect(Ref.make[Option[UUID]](None).map(FakeIdProvider.Ref(_)))
-  val dependencies: ULayer[Has[FakeIdProvider.Ref] with Api] =
+  val dependencies: ULayer[Has[FakeIdProvider.Ref] with Has[Api]] =
     idRefLayer >+> (FakeIdProvider.layer >>> Api.layer)
 
   override def spec = suite("Api")(
     suite("Create blog")(
-      testM("X should succeed with correct name") {
+      testM("should succeed with correct name") {
         for
         expectedId <- UIO(UUID.randomUUID())
         _ <- FakeIdProvider.set(expectedId)

@@ -3,15 +3,13 @@ package assignment
 import java.util.UUID
 import zio._
 
-type IdProvider = Has[IdProvider.Service]
-  
-object IdProvider:
+trait IdProvider:
+  def generateId: UIO[UUID]
 
-  trait Service:
-    def generateId: UIO[UUID]
+object IdProvider:
     
-  class Live extends IdProvider.Service:
+  object Live extends IdProvider:
     override def generateId: UIO[UUID] = UIO(UUID.randomUUID())
 
-  val layer: ULayer[IdProvider] = ZLayer.succeed(Live())
+  val layer: ULayer[Has[IdProvider]] = ZLayer.succeed(Live)
   
