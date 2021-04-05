@@ -13,7 +13,11 @@ import zio._
  *    - Dockerize
  *    - Setup CI
  */
-object Main extends zio.App:
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+object Main extends zio.App {
+
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     UIO(println("Server...")).exitCode
+  }
+
+}
 

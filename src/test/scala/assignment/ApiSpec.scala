@@ -8,25 +8,55 @@ import zio._
 import zio.test._
 import zio.test.environment._
 import zio.test.Assertion._
+import zio.test.TestAspect._
 import zio.test.junit._
 
-class ApiSpec extends JUnitRunnableSpec:
+class ApiSpec extends JUnitRunnableSpec {
 
-  val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] = 
-    ZLayer.fromEffect(Ref.make[Option[UUID]](None).map(FakeIdProvider.Ref(_)))
+  val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] =
+    ZLayer.fromEffect(Ref.make[List[UUID]](Nil).map(FakeIdProvider.Ref(_)))
   val dependencies: ULayer[Has[FakeIdProvider.Ref] with Has[Api]] =
     idRefLayer >+> (FakeIdProvider.layer >>> Api.layer)
 
-  override def spec = suite("Api")(
-    suite("Create blog")(
-      testM("should succeed with correct name") {
-        for
-        expectedId <- UIO(UUID.randomUUID())
-        _ <- FakeIdProvider.set(expectedId)
-        blogId <- Api.createBlog(Blog.Name("test blog"), List.empty)
-          yield assert(blogId)(equalTo(expectedId))
-      }.provideSomeLayer[TestEnvironment](dependencies)
-    )
-  )
+  val randomUUID: URIO[random.Random, UUID] = UIO(UUID.randomUUID())
 
+  override def spec = (
+    suite("Api")(
+      suite("Create blog")(
+        testM("should succeed with correct name")(
+          for {
+            expectedId <- randomUUID
+            _ <- FakeIdProvider.set(expectedId)
+            (blogId, _) <- Api.createBlog(Blog.Name("test blog"), List.empty)
+          } yield assert(blogId.value)(equalTo(expectedId))
+        ),
+        testM("should create the posts")(
+          for {
+            expectedBlogId <- randomUUID
+            expectedPostIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
+            posts = expectedPostIds.map[(Option[Post.Title], Post.Body)] { postId =>
+              (Some(Post.Title(s"Post #${postId}")), Post.Body("some content"))
+            }
+            _ <- FakeIdProvider.set(expectedBlogId :: expectedPostIds)
+
+            (blogId, postIds) <- Api.createBlog(Blog.Name("test blog"), posts)
+          } yield assert(blogId.value)(equalTo(expectedBlogId)) &&
+            assert(postIds.map(_.value))(equalTo(expectedPostIds))
+        ),
+      ),
+      suite("Query blogs")(
+        testM("should find a blog by id")(
+          for {
+            blogId <- randomUUID
+            _ <- FakeIdProvider.set(blogId)
+
+            _ <- Api.createBlog(Blog.Name("test blog"), List.empty)
+            blogs <- Api.queryBlogs(Query.ById(Blog.Id(blogId)))
+          } yield assert(blogs.map(_.id.value))(equalTo(List(blogId)))
+        )
+      )
+    ) @@ before(FakeIdProvider.set(Nil))
+  ).provideSomeLayer[TestEnvironment](dependencies)
+
+}
 

@@ -10,19 +10,11 @@ final case class Post(
   viewCount: Post.ViewCount,
 )
 
-object Post:
-  opaque type Id = UUID
-  object Id:
-    def apply(value: UUID): Id = value
+object Post {
 
-  opaque type Title = UUID
-  object Title:
-    def apply(value: UUID): Title = value
+  final case class Id(value: UUID) extends AnyVal
+  final case class Title(value: String) extends AnyVal
+  final case class Body(value: String) extends AnyVal
+  final case class ViewCount(value: Long) extends AnyVal
 
-  opaque type Body = UUID
-  object Body:
-    def apply(value: UUID): Body = value
-
-  opaque type ViewCount = UUID
-  object ViewCount:
-    def apply(value: UUID): ViewCount = value
+}

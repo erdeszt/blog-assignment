@@ -1,4 +1,6 @@
 package assignment.model
 
-enum Query:
-  case ById(id: Blog.Id) 
+sealed trait Query
+object Query {
+  final case class ById(id: Blog.Id) extends Query
+}

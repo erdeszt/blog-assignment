@@ -9,16 +9,10 @@ final case class Blog(
     posts: List[Post],
   )
 
-object Blog:
+object Blog {
 
-  opaque type Id = UUID
-  object Id:
-    def apply(value: UUID): Id = value
+  final case class Id(value: UUID) extends AnyVal
+  final case class Name(value: String) extends AnyVal
+  final case class Slug(value: String) extends AnyVal
 
-  opaque type Name = String
-  object Name:
-    def apply(value: String): Name = value
-
-  opaque type Slug = String
-  object Slug:
-    def apply(value: String): Slug = value
+}
