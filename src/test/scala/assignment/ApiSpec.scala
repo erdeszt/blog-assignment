@@ -1,51 +1,31 @@
 package assignment
 
-import assignment.model.Blog.{Id, Name}
-import assignment.model.Post.{Body, Title}
+import assignment.model._
+import assignment.model._
 import assignment.model.Query
+import java.util.UUID
 import zio._
-import zio.duration.{given}
 import zio.test._
 import zio.test.environment._
 import zio.test.Assertion._
 import zio.test.junit._
 
-trait Test:
-  val test: Test.Service
-  
-object Test:
-  trait Service:
-    def foo(): UIO[Unit]
-    
-  def foo(): URIO[Has[Test], Unit] =
-    ZIO.accessM(_.get.test.foo())
-
-  object Live extends Test:
-    val test = new Service:
-      override def foo(): UIO[Unit] = UIO.unit
-
-  val layer: ULayer[Has[Test]] = ZLayer.succeed(Live)
-
 class ApiSpec extends JUnitRunnableSpec:
 
-  object FakeApi extends Api:
-    val api = new Api.Service:
-      override def createBlog(name: Name, posts: List[(Option[Title], Body)]) = ZIO.die(new Exception("TODO"))
-      override def createPost(blogId: Id, title: Title, body: Body) = ZIO.die(new Exception("TODO"))
-      override def queryBlogs(query: Query) = ZIO.die(new Exception("TODO"))
-      override def dummy() = UIO.unit
-    val layer: ULayer[Has[Api]] = ZLayer.succeed(FakeApi)
+  val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] = 
+    ZLayer.fromEffect(Ref.make[Option[UUID]](None).map(FakeIdProvider.Ref(_)))
+  val dependencies: ULayer[Has[FakeIdProvider.Ref] with Api] =
+    idRefLayer >+> (FakeIdProvider.layer >>> Api.layer)
 
   override def spec = suite("Api")(
     suite("Create blog")(
-      testM("should succeed with correct name")(
+      testM("X should succeed with correct name") {
         for
-          _ <- UIO(println("OK"))
-          _ <- Api.dummy()
-          _ <- TestClock.adjust(1.minute)
-          _ <- Test.foo()
-        yield assert(true)(equalTo(true))
-      ).provideSomeLayer[TestEnvironment](Test.layer ++ FakeApi.layer)
+        expectedId <- UIO(UUID.randomUUID())
+        _ <- FakeIdProvider.set(expectedId)
+        blogId <- Api.createBlog(Blog.Name("test blog"), List.empty)
+          yield assert(blogId)(equalTo(expectedId))
+      }.provideSomeLayer[TestEnvironment](dependencies)
     )
   )
 
