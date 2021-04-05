@@ -4,6 +4,7 @@ import assignment.model.Blog.{Id, Name}
 import assignment.model.Post.{Body, Title}
 import assignment.model.Query
 import zio._
+import zio.duration.{given}
 import zio.test._
 import zio.test.environment._
 import zio.test.Assertion._
@@ -34,14 +35,14 @@ class ApiSpec extends JUnitRunnableSpec:
       override def queryBlogs(query: Query) = ZIO.die(new Exception("TODO"))
       override def dummy() = UIO.unit
     val layer: ULayer[Has[Api]] = ZLayer.succeed(FakeApi)
-      
-  
+
   override def spec = suite("Api")(
     suite("Create blog")(
       testM("should succeed with correct name")(
         for
           _ <- UIO(println("OK"))
           _ <- Api.dummy()
+          _ <- TestClock.adjust(1.minute)
           _ <- Test.foo()
         yield assert(true)(equalTo(true))
       ).provideSomeLayer[TestEnvironment](Test.layer ++ FakeApi.layer)
