@@ -1,0 +1,1 @@
+alter table post add column view_count int not null default 0;

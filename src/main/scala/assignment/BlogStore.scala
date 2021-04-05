@@ -1,28 +1,39 @@
 package assignment
 
 import assignment.model._
-import doobie._
+import cats.syntax.functor._
 import doobie.syntax.string._
 import doobie.syntax.connectionio._
-import java.util.UUID
 import zio._
-import zio.interop.catz._
 
 trait BlogStore {
-  def createBlog(id: Blog.Id, name: Blog.Name, slug: Blog.Slug): UIO[Unit]
+  def createBlog(id: Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit]
+  def getById(id:    Blog.Id): UIO[Option[BlogStore.BlogRead]]
 }
 
-object BlogStore {
+object BlogStore extends DoobieUUIDUtils {
 
-  implicit val putUUID: Put[UUID] = Put[String].contramap(_.toString)
+  final case class BlogRead(
+      id:   Blog.Id,
+      name: Blog.Name,
+      slug: Blog.Slug
+  )
 
-  class Live(transactor: Transactor[Task]) extends BlogStore {
-    override def createBlog(id: Blog.Id, name: Blog.Name, slug: Blog.Slug): UIO[Unit] = {
-      sql"insert into blog (id, name, slug) values (${id}, ${name}, ${slug})".update.run
-        .transact(transactor)
-        .unit
-        .orDie
+  final case class Live(trx: TransactionHandler) extends BlogStore {
+
+    override def createBlog(id: Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit] = {
+      sql"insert into blog (id, name, slug) values (${id}, ${name}, ${slug})".update.run.void
     }
+
+    override def getById(id: Blog.Id): UIO[Option[BlogRead]] = {
+      trx.run {
+        sql"select id, name, slug from blog where id = ${id} order by created_at desc".query[BlogRead].option
+      }
+    }
+
   }
+
+  val layer: URLayer[Has[TransactionHandler], Has[BlogStore]] =
+    ZLayer.fromService(Live)
 
 }

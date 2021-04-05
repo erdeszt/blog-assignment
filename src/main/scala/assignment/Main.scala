@@ -16,9 +16,10 @@ import zio._
 object Main extends zio.App {
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    val app = ZIO.accessM[Has[Migration]](_.get.migrate()) *> zio.console.putStrLn("Hello")
+    val app = Migration.migrate *> zio.console.putStrLn("Hello")
     val dbConfig = DatabaseConfig(
-      DatabaseConfig.Host("jdbc:mysql://localhost:3306"),
+      DatabaseConfig.Host("localhost"),
+      DatabaseConfig.Port(3306),
       DatabaseConfig.Database("assignment"),
       DatabaseConfig.User("root"),
       DatabaseConfig.Password("root")
