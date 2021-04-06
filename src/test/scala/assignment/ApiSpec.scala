@@ -183,7 +183,84 @@ class ApiSpec extends JUnitRunnableSpec {
             } yield assert(blogs)(hasSize(equalTo(1))) &&
               assert(blogs.head.posts.map(_.id.value))(hasSameElements(postIds))
           },
+          testM("should find a blog by slug") {
+            val slug = Blog.Slug("test-blog")
+            for {
+              blogId <- randomUUID
+              _ <- FakeIdProvider.set(blogId)
+
+              _ <- Api.createBlog(Blog.Name("test blog"), slug, List.empty).toDomainError
+              blogs <- Api.queryBlogs(Query.ByBlogSlug(slug), includePosts = false)
+            } yield assert(blogs)(hasSize(equalTo(1)))
+          },
+          testM("should find a blog by exact name") {
+            val name = Blog.Name("test blog")
+            for {
+              blogId <- randomUUID
+              _ <- FakeIdProvider.set(blogId)
+
+              _ <- Api.createBlog(name, Blog.Slug("test-blog"), List.empty).toDomainError
+              blogs <- Api.queryBlogs(Query.ByBlogName(name), includePosts = false)
+            } yield assert(blogs)(hasSize(equalTo(1)))
+          },
+          testM("should find a blog by partial name") {
+            for {
+              blogId <- randomUUID
+              _ <- FakeIdProvider.set(blogId)
+
+              _ <- Api.createBlog(Blog.Name("test blog"), Blog.Slug("test-blog"), List.empty).toDomainError
+              blogs <- Api.queryBlogs(Query.ByBlogName(Blog.Name("%test%")), includePosts = false)
+            } yield assert(blogs)(hasSize(equalTo(1)))
+          },
+          testM("should find a blog by exact post title") {
+            for {
+              blogId <- randomUUID
+              postId <- randomUUID
+              _ <- FakeIdProvider.set(List(blogId, postId))
+
+              _ <- Api
+                .createBlog(
+                  Blog.Name("test blog"),
+                  Blog.Slug("test-blog"),
+                  List((Some(Post.Title("test title")), Post.Content("test content"))),
+                )
+                .toDomainError
+              blogs <- Api.queryBlogs(Query.ByPostTitle(Post.Title("test title")), includePosts = false)
+            } yield assert(blogs)(hasSize(equalTo(1)))
+          },
+          testM("should find a blog by partial title") {
+            for {
+              blogId <- randomUUID
+              postId <- randomUUID
+              _ <- FakeIdProvider.set(List(blogId, postId))
+
+              _ <- Api
+                .createBlog(
+                  Blog.Name("test blog"),
+                  Blog.Slug("test-blog"),
+                  List((Some(Post.Title("test title")), Post.Content("test content"))),
+                )
+                .toDomainError
+              blogs <- Api.queryBlogs(Query.ByPostTitle(Post.Title("%test%")), includePosts = false)
+            } yield assert(blogs)(hasSize(equalTo(1)))
+          },
         ),
+        testM("should find a blog by partial content") {
+          for {
+            blogId <- randomUUID
+            postId <- randomUUID
+            _ <- FakeIdProvider.set(List(blogId, postId))
+
+            _ <- Api
+              .createBlog(
+                Blog.Name("test blog"),
+                Blog.Slug("test-blog"),
+                List((Some(Post.Title("test title")), Post.Content("test content"))),
+              )
+              .toDomainError
+            blogs <- Api.queryBlogs(Query.ByPostContent(Post.Content("%test%")), includePosts = false)
+          } yield assert(blogs)(hasSize(equalTo(1)))
+        },
       ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase)
         @@ beforeAll(Migration.migrate)
         @@ sequential

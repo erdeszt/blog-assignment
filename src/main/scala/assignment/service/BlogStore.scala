@@ -30,12 +30,12 @@ object BlogStore extends UUIDDatabaseMapping {
     }
 
     override def queryBlogs(query: Query): UIO[List[BlogRead]] = {
-      val selector = fr"select blog.id, blog.name, blog.slug from blog"
+      val selector = fr"select blog.id, blog.name, blog.slug from blog "
       val fullQuery = query match {
         case Query.ByBlogId(id) =>
           selector ++ fr"where blog.id = ${id}"
         case Query.ByBlogSlug(slug) =>
-          selector ++ fr"were blog.slug = ${slug}"
+          selector ++ fr"where blog.slug = ${slug}"
         case Query.ByBlogName(name) =>
           selector ++ fr"where blog.name like ${name}"
         case Query.HasPosts() =>
