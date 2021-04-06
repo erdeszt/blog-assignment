@@ -12,7 +12,6 @@ import scala.annotation.nowarn
 
 // TODO: Logging
 // TODO: Auth?
-// TODO: Dockerize
 object Main extends CatsApp {
 
   val layers: URLayer[ZEnv, Has[Migration] with Has[Api]] =

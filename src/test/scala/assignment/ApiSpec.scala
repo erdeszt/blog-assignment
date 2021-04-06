@@ -11,12 +11,10 @@ import doobie.util.fragment.Fragment
 import java.util.UUID
 import zio._
 import zio.test._
-import zio.test.environment._
 import zio.test.Assertion._
 import zio.test.TestAspect._
+import zio.test.environment.TestEnvironment
 import zio.test.junit._
-
-import scala.util.Try
 
 // TODO: Option[NonEmptyString] for title?
 object ApiSpecSbtRunner extends ApiSpec
@@ -24,20 +22,20 @@ class ApiSpec extends JUnitRunnableSpec {
 
   val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] =
     Ref.make[List[UUID]](Nil).map(FakeIdProvider.Ref).toLayer
-  val testDatabaseConfig: ULayer[Has[DatabaseConfig]] =
-    ZLayer.succeed(
-      DatabaseConfig(
+  val testDatabaseConfig: URLayer[ZEnv, Has[DatabaseConfig]] =
+    ZLayer.fromEffect(
+      for {
+        rawPort <- system.env("DB_PORT").someOrElse("3306").orDie
+        port <- UIO(rawPort.toInt)
+      } yield DatabaseConfig(
         DatabaseConfig.Host("localhost"),
-        // TODO: Cleanup
-        DatabaseConfig.Port(
-          sys.env.get("DB_PORT").flatMap(rawPort => Try(rawPort.toInt).toOption).getOrElse(3306),
-        ),
+        DatabaseConfig.Port(port),
         DatabaseConfig.Database("assignment_test"),
         DatabaseConfig.User("root"),
         DatabaseConfig.Password("root"),
       ),
     )
-  val stores       = testDatabaseConfig >>> Layers.stores
+  val stores       = (ZEnv.live >>> testDatabaseConfig) >>> Layers.stores
   val idProvider   = idRefLayer >>> FakeIdProvider.layer
   val dependencies = idRefLayer ++ ((idProvider ++ stores) >>> Api.layer)
 
