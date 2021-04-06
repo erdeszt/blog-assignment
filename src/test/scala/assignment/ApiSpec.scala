@@ -16,8 +16,10 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test.junit._
 
+import scala.util.Try
+
 // TODO: Option[NonEmptyString] for title?
-class ApiSpec extends JUnitRunnableSpec {
+object ApiSpec extends JUnitRunnableSpec {
 
   val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] =
     Ref.make[List[UUID]](Nil).map(FakeIdProvider.Ref).toLayer
@@ -25,7 +27,9 @@ class ApiSpec extends JUnitRunnableSpec {
     ZLayer.succeed(
       DatabaseConfig(
         DatabaseConfig.Host("localhost"),
-        DatabaseConfig.Port(3306),
+        DatabaseConfig.Port(
+          sys.env.get("DB_PORT").flatMap(rawPort => Try(rawPort.toInt).toOption).getOrElse(3306)
+        ),
         DatabaseConfig.Database("assignment_test"),
         DatabaseConfig.User("root"),
         DatabaseConfig.Password("root")
