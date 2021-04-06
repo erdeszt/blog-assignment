@@ -1,3 +1,5 @@
+import com.typesafe.sbt.SbtNativePackager.Docker
+
 val circeVersion  = "0.13.0"
 val http4sVersion = "0.21.21"
 val tapirVersion  = "0.17.9"
@@ -5,6 +7,7 @@ val zioVersion    = "1.0.5"
 
 lazy val root = project
   .in(file("."))
+  .enablePlugins(JavaAppPackaging)
   .settings(
     name := "blog-assignment",
     version := "0.1.0",
@@ -32,6 +35,10 @@ lazy val root = project
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.3" cross CrossVersion.full),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
+    Docker / maintainer := "erdeszt",
+    Docker / packageSummary := "Blog API",
+    packageDescription := "Blog APi",
+    Docker / packageName := "blog-assignment",
     scalacOptions ++= Seq(
       "-deprecation", // Emit warning and location for usages of deprecated APIs.
       "-explaintypes", // Explain type errors in more detail.

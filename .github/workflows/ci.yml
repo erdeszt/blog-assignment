@@ -26,3 +26,5 @@ jobs:
         env:
           DB_PORT: ${{ job.services.mysql.ports[3306] }}
         run: sbt test
+      - name: Package
+        run: sbt docker:publishLocal
