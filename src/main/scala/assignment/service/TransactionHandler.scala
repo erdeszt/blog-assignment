@@ -1,6 +1,5 @@
 package assignment.service
 
-import assignment.Trx
 import doobie._
 import doobie.syntax.connectionio._
 import zio._

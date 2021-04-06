@@ -1,7 +1,6 @@
 package assignment.service
 
 import assignment.model._
-import assignment.{DoobieUUIDUtils, Trx}
 import cats.syntax.functor._
 import doobie.syntax.string._
 import doobie.util.update.Update

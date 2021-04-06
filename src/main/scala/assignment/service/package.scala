@@ -1,10 +1,11 @@
-import doobie._
+package assignment
 
 import cats.syntax.either._
+import doobie._
 import java.util.UUID
 import scala.util.Try
 
-package object assignment {
+package object service {
   type Trx[T] = ConnectionIO[T]
 
   trait DoobieUUIDUtils {
