@@ -40,9 +40,10 @@ object Routes {
       .out(jsonBody[CreatePostResponse])
       .errorOut(jsonBody[ErrorResponse])
 
-  val queryBlogs: ZEndpoint[Unit, ErrorResponse, QueryBlogsResponse] =
-    endpoint.get
+  val queryBlogs: ZEndpoint[QueryBlogsRequest, ErrorResponse, QueryBlogsResponse] =
+    endpoint.post
       .in("blog" / "query")
+      .in(jsonBody[QueryBlogsRequest])
       .out(jsonBody[QueryBlogsResponse])
       .errorOut(jsonBody[ErrorResponse])
 

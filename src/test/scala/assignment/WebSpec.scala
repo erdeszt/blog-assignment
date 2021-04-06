@@ -1,6 +1,7 @@
 package assignment
 
-import assignment.dto.QueryBlogsResponse
+import assignment.dto.{QueryBlogsRequest, QueryBlogsResponse}
+import assignment.model.Blog
 import sttp.tapir.client.sttp._
 import sttp.client3.{ignore => _, _}
 import sttp.tapir.DecodeResult
@@ -9,6 +10,8 @@ import zio.test._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test.junit.JUnitRunnableSpec
+
+import java.util.UUID
 
 object WebSpecSbtRunner extends WebSpec
 class WebSpec extends JUnitRunnableSpec {
@@ -21,7 +24,7 @@ class WebSpec extends JUnitRunnableSpec {
           val backend = HttpURLConnectionBackend()
           for {
             response: Response[DecodeResult[Either[Routes.ErrorResponse, QueryBlogsResponse]]] <- UIO(
-              request(()).send(backend),
+              request(QueryBlogsRequest(model.Query.ByBlogId(Blog.Id(UUID.randomUUID())))).send(backend),
             )
           } yield assert(response.body)(equalTo(DecodeResult.Value(Right(QueryBlogsResponse(List.empty)))))
         },
