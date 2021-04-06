@@ -39,6 +39,7 @@ lazy val root = project
     Docker / packageSummary := "Blog API",
     packageDescription := "Blog APi",
     Docker / packageName := "blog-assignment",
+    // Recommended compiler flags from: https://nathankleyn.com/2019/05/13/recommended-scalac-flags-for-2-13/
     scalacOptions ++= Seq(
       "-deprecation", // Emit warning and location for usages of deprecated APIs.
       "-explaintypes", // Explain type errors in more detail.

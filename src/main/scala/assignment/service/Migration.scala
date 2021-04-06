@@ -18,7 +18,7 @@ object Migration {
     }
 
     private def connectionString(config: DatabaseConfig): String = {
-      s"jdbc:mysql://${config.host.value}:${config.port.value}"
+      s"jdbc:mysql://${config.host.value}:${config.port.value.toString}"
     }
 
     private def runMigration: UIO[Unit] = {
@@ -32,7 +32,8 @@ object Migration {
           )
           .load()
 
-        flyway.migrate()
+        val _ = flyway.migrate()
+
         ()
       }
     }

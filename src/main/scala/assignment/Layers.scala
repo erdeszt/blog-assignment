@@ -13,7 +13,7 @@ object Layers {
       TransactionHandler.Live(
         Transactor.fromDriverManager(
           "com.mysql.cj.jdbc.Driver",
-          s"jdbc:mysql://${config.host.value}:${config.port.value}/${config.database.value}",
+          s"jdbc:mysql://${config.host.value}:${config.port.value.toString}/${config.database.value}",
           config.user.value,
           config.password.value,
           Blocker.liftExecutionContext(ExecutionContexts.synchronous),
