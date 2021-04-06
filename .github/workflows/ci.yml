@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+  workflow_dispatch:
+
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-20.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: assignment_test
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run the tests
+        run: sbt test

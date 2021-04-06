@@ -17,7 +17,7 @@ import zio.test.TestAspect._
 import zio.test.junit._
 
 // TODO: Option[NonEmptyString] for title?
-class ApiSpec extends JUnitRunnableSpec {
+object ApiSpec extends JUnitRunnableSpec {
 
   val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] =
     Ref.make[List[UUID]](Nil).map(FakeIdProvider.Ref).toLayer
