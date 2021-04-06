@@ -244,23 +244,23 @@ class ApiSpec extends JUnitRunnableSpec {
               blogs <- Api.queryBlogs(Query.ByPostTitle(Post.Title("%test%")), includePosts = false)
             } yield assert(blogs)(hasSize(equalTo(1)))
           },
-        ),
-        testM("should find a blog by partial content") {
-          for {
-            blogId <- randomUUID
-            postId <- randomUUID
-            _ <- FakeIdProvider.set(List(blogId, postId))
+          testM("should find a blog by partial content") {
+            for {
+              blogId <- randomUUID
+              postId <- randomUUID
+              _ <- FakeIdProvider.set(List(blogId, postId))
 
-            _ <- Api
-              .createBlog(
-                Blog.Name("test blog"),
-                Blog.Slug("test-blog"),
-                List((Some(Post.Title("test title")), Post.Content("test content"))),
-              )
-              .toDomainError
-            blogs <- Api.queryBlogs(Query.ByPostContent(Post.Content("%test%")), includePosts = false)
-          } yield assert(blogs)(hasSize(equalTo(1)))
-        },
+              _ <- Api
+                .createBlog(
+                  Blog.Name("test blog"),
+                  Blog.Slug("test-blog"),
+                  List((Some(Post.Title("test title")), Post.Content("test content"))),
+                )
+                .toDomainError
+              blogs <- Api.queryBlogs(Query.ByPostContent(Post.Content("%test%")), includePosts = false)
+            } yield assert(blogs)(hasSize(equalTo(1)))
+          },
+        ),
       ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase)
         @@ beforeAll(Migration.migrate)
         @@ sequential
