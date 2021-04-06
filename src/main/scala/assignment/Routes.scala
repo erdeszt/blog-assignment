@@ -1,10 +1,14 @@
 package assignment
 
 import assignment.dto._
+import assignment.model.DomainError.EmptyBlogName
 import assignment.model._
-import assignment.service.Api
+import assignment.service._
 import io.circe.generic.semiauto.deriveCodec
 import org.http4s.HttpRoutes
+import hotpotato._
+import shapeless.Coproduct
+import shapeless.ops.coproduct.Unifier
 //import sttp.tapir._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
@@ -46,12 +50,33 @@ object Routes {
       .out(jsonBody[QueryBlogsResponse])
       .errorOut(jsonBody[ErrorResponse])
 
+  implicit class ErrorHandlerExtension[-R, E <: Coproduct, +A](effect: ZIO[R, E, A])(
+      implicit unifier:                                                Unifier.Aux[E, DomainError]
+  ) {
+    def handleErrors: ZIO[R, ErrorResponse, A] = {
+      effect.toDomainError.mapError {
+        case error @ DomainError.EmptyBlogName() => ErrorResponse(1, error.getMessage)
+        case error @ DomainError.EmptyPostBody() => ErrorResponse(2, error.getMessage)
+      }
+    }
+  }
+
+  def errorHandler(error: DomainError): ErrorResponse = {
+    error match {
+      case DomainError.EmptyBlogName() => ErrorResponse(1, error.getMessage)
+      case DomainError.EmptyPostBody() => ErrorResponse(2, error.getMessage)
+    }
+  }
+
   def create(): HttpRoutes[RIO[Has[Api] with Clock, *]] = {
     val createBlogRoute = Routes.createBlog.zServerLogic { request =>
-      Api.createBlog(request.name, request.posts.map(post => (post.title, post.body))).map {
-        case (blogId, postIds) =>
-          CreateBlogResponse(blogId, postIds)
-      }
+      Api
+        .createBlog(request.name, request.posts.map(post => (post.title, post.body)))
+        .handleDomainErrors(errorHandler)
+        .map {
+          case (blogId, postIds) =>
+            CreateBlogResponse(blogId, postIds)
+        }
     }
     val createPostRoute = Routes.createPost.zServerLogic { request =>
       Api.createPost(request.blogId, request.create.title, request.create.body).map(CreatePostResponse(_))

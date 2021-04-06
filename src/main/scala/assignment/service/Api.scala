@@ -1,7 +1,9 @@
 package assignment.service
 
+import assignment.model.DomainError.{EmptyBlogName, EmptyPostBody}
 import assignment.model._
 import cats.data.OptionT
+import hotpotato._
 import zio._
 import zio.interop.catz._
 
@@ -12,12 +14,17 @@ import zio.interop.catz._
   *    - Consider moving id provider to store
   */
 trait Api {
-  def createBlog(name:   Blog.Name, posts: List[(Option[Post.Title], Post.Body)]): UIO[(Blog.Id, List[Post.Id])]
+  def createBlog(
+      name:  Blog.Name,
+      posts: List[(Option[Post.Title], Post.Body)]
+  ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])]
   def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): UIO[Post.Id]
   def queryBlogs(query:  Query): UIO[List[Blog]]
 }
 
 object Api {
+
+  type CreateBlogError = OneOf2[EmptyBlogName, EmptyPostBody]
 
   final case class Live(idProvider: IdProvider, blogStore: BlogStore, postStore: PostStore, trx: TransactionHandler)
       extends Api {
@@ -25,8 +32,11 @@ object Api {
     override def createBlog(
         name:  Blog.Name,
         posts: List[(Option[Post.Title], Post.Body)]
-    ): UIO[(Blog.Id, List[Post.Id])] = {
+    ): IO[CreateBlogError, (Blog.Id, List[Post.Id])] = {
+      implicit val errorEmbedder = Embedder.make[CreateBlogError]
       for {
+        _ <- ZIO.when(name.value.isEmpty)(ZIO.fail(EmptyBlogName().embed))
+        _ <- ZIO.when(posts.exists { case (_, body) => body.value.isEmpty })(ZIO.fail(EmptyPostBody().embed))
         blogId <- idProvider.generateId.map(Blog.Id)
         blogPosts <- ZIO.foreach(posts) {
           case (title, body) =>
@@ -42,7 +52,10 @@ object Api {
     }
 
     override def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): UIO[Post.Id] = {
-      ZIO.die(new Exception("Stop"))
+      for {
+        id <- idProvider.generateId.map(Post.Id)
+        _ <- trx.run(postStore.createPost(PostStore.Create(id, blogId, title, body)))
+      } yield id
     }
 
     override def queryBlogs(query: Query): UIO[List[Blog]] = {
@@ -70,7 +83,7 @@ object Api {
   def createBlog(
       name:  Blog.Name,
       posts: List[(Option[Post.Title], Post.Body)]
-  ): URIO[Has[Api], (Blog.Id, List[Post.Id])] =
+  ): ZIO[Has[Api], CreateBlogError, (Blog.Id, List[Post.Id])] =
     ZIO.accessM(_.get.createBlog(name, posts))
 
   def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): URIO[Has[Api], Post.Id] = {

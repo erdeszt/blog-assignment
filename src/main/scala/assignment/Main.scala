@@ -32,7 +32,10 @@ object Main extends CatsApp {
 
   val apiLayer = ZLayer.succeed {
     new Api {
-      def createBlog(name: Blog.Name, posts: List[(Option[Post.Title], Post.Body)]): UIO[(Blog.Id, List[Post.Id])] = ???
+      def createBlog(
+          name:  Blog.Name,
+          posts: List[(Option[Post.Title], Post.Body)]
+      ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])] = ???
 
       def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): UIO[Post.Id] = ???
 
