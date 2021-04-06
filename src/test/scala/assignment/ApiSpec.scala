@@ -1,8 +1,7 @@
 package assignment
 
 import assignment.model._
-import assignment.model._
-import assignment.model.Query
+import assignment.service._
 import java.util.UUID
 import zio._
 import zio.test._

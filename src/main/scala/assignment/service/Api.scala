@@ -1,4 +1,4 @@
-package assignment
+package assignment.service
 
 import assignment.model._
 import cats.data.OptionT

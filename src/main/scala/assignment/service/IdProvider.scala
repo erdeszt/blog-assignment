@@ -1,7 +1,8 @@
-package assignment
+package assignment.service
+
+import zio._
 
 import java.util.UUID
-import zio._
 
 trait IdProvider {
   def generateId: UIO[UUID]
@@ -16,4 +17,3 @@ object IdProvider {
   val layer: ULayer[Has[IdProvider]] = ZLayer.succeed(Live)
 
 }
-  

@@ -1,9 +1,9 @@
-package assignment
+package assignment.service
 
 import assignment.model._
+import assignment.{DoobieUUIDUtils, Trx}
 import cats.syntax.functor._
 import doobie.syntax.string._
-import doobie.syntax.connectionio._
 import zio._
 
 trait BlogStore {

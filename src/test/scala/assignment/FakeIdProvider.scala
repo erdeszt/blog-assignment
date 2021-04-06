@@ -1,5 +1,7 @@
 package assignment
 
+import assignment.service.IdProvider
+
 import java.util.UUID
 import zio._
 
