@@ -16,8 +16,8 @@ object Layers {
           s"jdbc:mysql://${config.host.value}:${config.port.value}/${config.database.value}",
           config.user.value,
           config.password.value,
-          Blocker.liftExecutionContext(ExecutionContexts.synchronous)
-        )
+          Blocker.liftExecutionContext(ExecutionContexts.synchronous),
+        ),
       )
     }
 

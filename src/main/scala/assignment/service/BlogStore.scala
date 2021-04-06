@@ -16,7 +16,7 @@ object BlogStore extends DoobieUUIDUtils {
   final case class BlogRead(
       id:   Blog.Id,
       name: Blog.Name,
-      slug: Blog.Slug
+      slug: Blog.Slug,
   )
 
   final case class Live(trx: TransactionHandler) extends BlogStore {

@@ -6,7 +6,7 @@ final case class Blog(
     id:    Blog.Id,
     name:  Blog.Name,
     slug:  Blog.Slug,
-    posts: List[Post]
+    posts: List[Post],
 )
 
 object Blog {

@@ -8,7 +8,7 @@ final case class Post(
     blogId:    Blog.Id,
     title:     Option[Post.Title],
     body:      Post.Body,
-    viewCount: Post.ViewCount
+    viewCount: Post.ViewCount,
 )
 
 object Post {

@@ -20,7 +20,7 @@ object PostStore extends DoobieUUIDUtils {
       id:     Post.Id,
       blogId: Blog.Id,
       title:  Option[Post.Title],
-      body:   Post.Body
+      body:   Post.Body,
   )
 
   final case class Live(trx: TransactionHandler) extends PostStore {

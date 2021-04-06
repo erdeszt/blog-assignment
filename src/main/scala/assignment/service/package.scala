@@ -21,7 +21,7 @@ package object service {
   }
 
   implicit class ErrorExtension[-R, E <: Coproduct, +A](effect: ZIO[R, E, A])(
-      implicit unifier:                                         Unifier.Aux[E, DomainError]
+      implicit unifier:                                         Unifier.Aux[E, DomainError],
   ) {
     def toDomainError: ZIO[R, DomainError, A] = {
       handleDomainErrors(identity)

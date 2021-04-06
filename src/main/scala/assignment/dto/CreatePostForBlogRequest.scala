@@ -5,7 +5,7 @@ import io.circe.generic.semiauto.deriveCodec
 
 final case class CreatePostForBlogRequest(
     blogId: Blog.Id,
-    create: CreatePostRequest
+    create: CreatePostRequest,
 )
 
 object CreatePostForBlogRequest {

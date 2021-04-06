@@ -18,7 +18,6 @@ lazy val root = project
       "com.softwaremill.sttp.tapir" %% "tapir-zio-http4s-server" % tapirVersion,
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-refined" % circeVersion, // TODO: Remove
       "com.github.jatcwang" %% "hotpotato-core" % "0.1.1",
       "dev.zio" %% "zio" % zioVersion,
       "dev.zio" %% "zio-interop-cats" % "2.4.0.0",

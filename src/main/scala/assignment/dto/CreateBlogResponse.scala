@@ -5,7 +5,7 @@ import io.circe.generic.semiauto._
 
 final case class CreateBlogResponse(
     blogId:  Blog.Id,
-    postIds: List[Post.Id]
+    postIds: List[Post.Id],
 )
 
 object CreateBlogResponse {

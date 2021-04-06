@@ -8,7 +8,7 @@ final case class DatabaseConfig(
     port:     DatabaseConfig.Port,
     database: DatabaseConfig.Database,
     user:     DatabaseConfig.User,
-    password: DatabaseConfig.Password
+    password: DatabaseConfig.Password,
 )
 
 object DatabaseConfig {

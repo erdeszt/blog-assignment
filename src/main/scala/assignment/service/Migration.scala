@@ -28,7 +28,7 @@ object Migration {
           .dataSource(
             connectionString(config) + "/" + config.database.value,
             config.user.value,
-            config.password.value
+            config.password.value,
           )
           .load()
 
@@ -40,7 +40,7 @@ object Migration {
       val createStatement = s"create database if not exists ${config.database.value}"
       ZManaged
         .fromAutoCloseable(
-          UIO(DriverManager.getConnection(connectionString(config), config.user.value, config.password.value))
+          UIO(DriverManager.getConnection(connectionString(config), config.user.value, config.password.value)),
         )
         .use { connection =>
           ZManaged

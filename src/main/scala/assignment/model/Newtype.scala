@@ -12,7 +12,7 @@ object Newtype {
   def deriveCireCodec[T, NT <: Newtype[T]](constructor: T => NT)(
       implicit
       encoder: Encoder[T],
-      decoder: Decoder[T]
+      decoder: Decoder[T],
   ): Codec[NT] = {
     new Codec[NT] {
       def apply(newtype: NT):      Json       = encoder.apply(newtype.value)
