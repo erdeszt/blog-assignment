@@ -5,7 +5,6 @@ import assignment.model._
 import hotpotato._
 import zio._
 
-// TODO: Consider moving id provider to store
 trait Api {
   def createBlog(
       name:  Blog.Name,
@@ -37,7 +36,6 @@ object Api {
         _ <- ZIO.when(slug.value.isEmpty)(ZIO.fail(EmptyBlogSlug().embed))
         _ <- ZIO.unless(blogSlugFormat.matches(slug.value))(ZIO.fail(InvalidBlogSlug(slug).embed))
         _ <- ZIO.when(posts.exists { case (_, content) => content.value.isEmpty })(ZIO.fail(EmptyPostContent().embed))
-        // TODO: Race condition
         _ <- ZIO.whenM(blogStore.queryBlogs(Query.ByBlogSlug(slug)).map(_.nonEmpty))(
           ZIO.fail(BlogSlugAlreadyExists(slug).embed),
         )

@@ -16,7 +16,6 @@ import zio.test.TestAspect._
 import zio.test.environment.TestEnvironment
 import zio.test.junit._
 
-// TODO: Option[NonEmptyString] for title?
 object ApiSpecSbtRunner extends ApiSpec
 class ApiSpec extends JUnitRunnableSpec {
 

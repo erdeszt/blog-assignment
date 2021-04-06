@@ -29,6 +29,6 @@ class WebSpec extends JUnitRunnableSpec {
           } yield assert(response.body)(equalTo(DecodeResult.Value(Right(QueryBlogsResponse(List.empty)))))
         },
       ),
-    ) @@ ignore // TODO: Start server or CI
+    ) @@ ignore
 
 }

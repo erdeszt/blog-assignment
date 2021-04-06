@@ -4,7 +4,8 @@ import assignment.model.Query
 import io.circe.generic.semiauto.deriveCodec
 
 final case class QueryBlogsRequest(
-    query: Query,
+    query:        Query,
+    includePosts: Boolean,
 )
 
 object QueryBlogsRequest {

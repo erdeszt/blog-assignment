@@ -10,8 +10,6 @@ import zio.interop.catz._
 
 import scala.annotation.nowarn
 
-// TODO: Logging
-// TODO: Auth?
 object Main extends CatsApp {
 
   val layers: URLayer[ZEnv, Has[Migration] with Has[Api]] =

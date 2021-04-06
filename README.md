@@ -1,9 +1,13 @@
 ## Blog assignment
 
 TODO:
-* Query rest binding
-* Docker
+* Option[NonEmptyString] for post.title?
+* Logging
+* WebSpec
 * Scapegoat
+* Auth?
+* TODO: Consider moving id provider to store
+* [BUG]Race condition in existing slug check
 
 
 ### Build, run & test:
@@ -18,3 +22,7 @@ TODO:
   DB_PASSWORD=root \
   sbt run
 ```
+
+#### Api documentation:
+
+[http://localhost:8080/docs]()

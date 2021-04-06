@@ -74,9 +74,8 @@ object Routes {
         .handleDomainErrors(errorHandler)
         .map(CreatePostResponse(_))
     }
-    // TODO: Request type
-    val queryBlogsRoute = queryBlogs.zServerLogic { _ =>
-      Api.queryBlogs(model.Query.ByBlogId(Blog.Id(UUID.randomUUID())), includePosts = true).map(QueryBlogsResponse(_))
+    val queryBlogsRoute = queryBlogs.zServerLogic { request =>
+      Api.queryBlogs(request.query, request.includePosts).map(QueryBlogsResponse(_))
     }
 
     ZHttp4sServerInterpreter.from(List(createBlogRoute, createPostRoute, queryBlogsRoute)).toRoutes <+>
@@ -86,6 +85,7 @@ object Routes {
   val yaml: String = {
     import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
     import sttp.tapir.openapi.circe.yaml._
+
     OpenAPIDocsInterpreter
       .toOpenAPI(
         List(createBlog, createPost, queryBlogs),
