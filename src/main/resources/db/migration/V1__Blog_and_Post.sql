@@ -1,5 +1,6 @@
 create table blog (
   id varchar(36) primary key,
+  owner_id varchar(36) not null,
   name varchar(255) not null,
   slug varchar(255) not null,
   created_at timestamp not null default now(),

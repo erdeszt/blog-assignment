@@ -156,6 +156,20 @@ class ApiSpec extends JUnitRunnableSpec {
                 .either
             } yield assert(error)(isLeft(equalTo(BlogNotFound(blogId))))
           },
+          testM("should fail if the blog is not owned by the caller") {
+            for {
+              blogId <- randomUUID.map(Blog.Id)
+              userId <- randomUUID.map(User.Id)
+              _ <- FakeIdProvider.set(blogId.value)
+
+              _ <- Api.createBlog(Blog.Name("blog1"), Blog.Slug("blog1"), List.empty)
+              error <- Api
+                .createPost(blogId, Some(Post.Title("post1")), Post.Content("post1 content"))
+                .provideSomeLayer[Has[Api]](ZLayer.succeed(User(userId)))
+                .toDomainError
+                .either
+            } yield assert(error)(isLeft(equalTo(Unauthorized())))
+          },
           testM("should fail if the title is provided but empty") {
             for {
               blogId <- randomUUID

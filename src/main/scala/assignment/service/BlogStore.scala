@@ -6,7 +6,7 @@ import doobie.syntax.string._
 import zio._
 
 trait BlogStore {
-  def createBlog(id:    Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit]
+  def createBlog(id:    Blog.Id, owner: User.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit]
   def getById(id:       Blog.Id): UIO[Option[BlogStore.BlogRead]]
   def queryBlogs(query: Query): UIO[List[BlogStore.BlogRead]]
 }
@@ -14,15 +14,16 @@ trait BlogStore {
 object BlogStore extends UUIDDatabaseMapping {
 
   final case class BlogRead(
-      id:   Blog.Id,
-      name: Blog.Name,
-      slug: Blog.Slug,
+      id:      Blog.Id,
+      ownerId: User.Id,
+      name:    Blog.Name,
+      slug:    Blog.Slug,
   )
 
   final case class Live(trx: TransactionHandler) extends BlogStore {
 
-    override def createBlog(id: Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit] = {
-      sql"insert into blog (id, name, slug) values (${id}, ${name}, ${slug})".update.run.void
+    override def createBlog(id: Blog.Id, owner: User.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit] = {
+      sql"insert into blog (id, owner_id, name, slug) values (${id}, ${owner}, ${name}, ${slug})".update.run.void
     }
 
     override def getById(id: Blog.Id): UIO[Option[BlogStore.BlogRead]] = {
@@ -30,7 +31,7 @@ object BlogStore extends UUIDDatabaseMapping {
     }
 
     override def queryBlogs(query: Query): UIO[List[BlogRead]] = {
-      val selector = fr"select blog.id, blog.name, blog.slug from blog "
+      val selector = fr"select blog.id, blog.owner_id, blog.name, blog.slug from blog "
       val fullQuery = query match {
         case Query.ByBlogId(id) =>
           selector ++ fr"where blog.id = ${id}"

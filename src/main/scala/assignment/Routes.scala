@@ -10,7 +10,7 @@ import io.circe.syntax._
 import org.http4s._
 import pdi.jwt.{JwtAlgorithm, JwtCirce}
 import sttp.tapir
-import sttp.tapir.{Codec, CodecFormat, Endpoint, Schema}
+import sttp.tapir.{Codec, CodecFormat, Schema}
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
@@ -88,6 +88,7 @@ object Routes {
       case DomainError.EmptyPostContent()       => ErrorResponse(5, error.getMessage)
       case DomainError.BlogNotFound(_)          => ErrorResponse(6, error.getMessage)
       case DomainError.BlogSlugAlreadyExists(_) => ErrorResponse(7, error.getMessage)
+      case DomainError.Unauthorized()           => ErrorResponse(8, error.getMessage)
     }
   }
 

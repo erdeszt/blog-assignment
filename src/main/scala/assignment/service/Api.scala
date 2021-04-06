@@ -27,7 +27,7 @@ object Api {
   type PostValidationError = OneOf2[EmptyPostTitle, EmptyPostContent]
   type CreateBlogError =
     OneOf6[EmptyBlogName, EmptyBlogSlug, InvalidBlogSlug, BlogSlugAlreadyExists, EmptyPostTitle, EmptyPostContent]
-  type CreatePostError = OneOf3[BlogNotFound, EmptyPostTitle, EmptyPostContent]
+  type CreatePostError = OneOf4[BlogNotFound, EmptyPostTitle, EmptyPostContent, Unauthorized]
 
   private val blogSlugFormat = "^[a-zA-Z][a-zA-Z0-9\\-]*$".r
 
@@ -48,6 +48,7 @@ object Api {
         _ <- ZIO.whenM(blogStore.queryBlogs(Query.ByBlogSlug(slug)).map(_.nonEmpty))(
           ZIO.fail(BlogSlugAlreadyExists(slug).embed),
         )
+        ownerId <- ZIO.service[User]
         blogId <- idProvider.generateId.map(Blog.Id)
         blogPosts <- ZIO.foreach(posts) {
           case (title, content) =>
@@ -55,7 +56,7 @@ object Api {
         }
         _ <- trx.run {
           for {
-            _ <- blogStore.createBlog(blogId, name, slug)
+            _ <- blogStore.createBlog(blogId, ownerId.id, name, slug)
             _ <- postStore.createPosts(blogPosts)
           } yield ()
         }
@@ -70,7 +71,9 @@ object Api {
       implicit val errorEmbedder = Embedder.make[CreatePostError]
       for {
         _ <- validatePost[CreatePostError](title, content)
-        _ <- blogStore.getById(blogId).someOrFail(BlogNotFound(blogId).embed)
+        blog <- blogStore.getById(blogId).someOrFail(BlogNotFound(blogId).embed)
+        user <- ZIO.service[User]
+        _ <- ZIO.unless(blog.ownerId == user.id)(ZIO.fail(Unauthorized().embed))
         id <- idProvider.generateId.map(Post.Id)
         _ <- trx.run(postStore.createPost(PostStore.Create(id, blogId, title, content)))
       } yield id
