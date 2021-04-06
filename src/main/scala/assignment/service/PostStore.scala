@@ -14,7 +14,7 @@ trait PostStore {
   def getPostsByBlogIds(blogIds: List[Blog.Id]):          UIO[List[Post]]
 }
 
-object PostStore extends DoobieUUIDUtils {
+object PostStore extends UUIDDatabaseMapping {
 
   final case class Create(
       id:     Post.Id,

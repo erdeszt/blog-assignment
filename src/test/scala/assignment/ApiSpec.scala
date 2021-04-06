@@ -7,7 +7,6 @@ import cats.syntax.functor._
 import cats.syntax.traverse._
 import doobie.syntax.string._
 import doobie.util.fragment.Fragment
-import org.junit.runner.RunWith
 
 import java.util.UUID
 import zio._

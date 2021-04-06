@@ -46,10 +46,11 @@ object Routes {
 
   def errorHandler(error: DomainError): ErrorResponse = {
     error match {
-      case DomainError.EmptyBlogName() => ErrorResponse(1, error.getMessage)
-      case DomainError.EmptyBlogSlug() => ErrorResponse(2, error.getMessage)
-      case DomainError.EmptyPostBody() => ErrorResponse(3, error.getMessage)
-      case DomainError.BlogNotFound(_) => ErrorResponse(4, error.getMessage)
+      case DomainError.EmptyBlogName()          => ErrorResponse(1, error.getMessage)
+      case DomainError.EmptyBlogSlug()          => ErrorResponse(2, error.getMessage)
+      case DomainError.EmptyPostBody()          => ErrorResponse(3, error.getMessage)
+      case DomainError.BlogNotFound(_)          => ErrorResponse(4, error.getMessage)
+      case DomainError.BlogSlugAlreadyExists(_) => ErrorResponse(5, error.getMessage)
     }
   }
 
@@ -70,7 +71,7 @@ object Routes {
         .map(CreatePostResponse(_))
     }
     // TODO: Request type
-    val queryBlogsRoute = Routes.queryBlogs.zServerLogic { request =>
+    val queryBlogsRoute = Routes.queryBlogs.zServerLogic { _ =>
       Api.queryBlogs(Query.ByBlogId(Blog.Id(UUID.randomUUID())), includePosts = true).map(QueryBlogsResponse(_))
     }
 

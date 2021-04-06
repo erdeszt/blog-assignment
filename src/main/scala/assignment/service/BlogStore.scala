@@ -11,7 +11,7 @@ trait BlogStore {
   def getBySlug(slug: Blog.Slug): UIO[Option[BlogStore.BlogRead]]
 }
 
-object BlogStore extends DoobieUUIDUtils {
+object BlogStore extends UUIDDatabaseMapping {
 
   final case class BlogRead(
       id:   Blog.Id,
