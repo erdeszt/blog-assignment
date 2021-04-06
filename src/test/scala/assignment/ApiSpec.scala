@@ -25,10 +25,8 @@ class ApiSpec extends JUnitRunnableSpec {
   val testDatabaseConfig: ULayer[Has[DatabaseConfig]] = {
     ZEnv.live >>> ZLayer.fromEffect {
       for {
-        // TODO: Fix CI
         rawPort <- system.env("DB_PORT").someOrElse("3306").orDie
         port <- UIO(rawPort.toInt)
-        _ <- UIO(println(s"!!!!!!! PORT: ${port} !!!!!!!!!!!!"))
       } yield DatabaseConfig(
         DatabaseConfig.Host("localhost"),
         DatabaseConfig.Port(port),
