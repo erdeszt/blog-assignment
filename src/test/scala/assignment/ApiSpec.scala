@@ -3,6 +3,8 @@ package assignment
 import assignment.model.DomainError._
 import assignment.model._
 import assignment.service._
+import doobie.syntax.string._
+import doobie.util.fragment.Fragment
 
 import java.util.UUID
 import zio._
@@ -37,7 +39,18 @@ class ApiSpec extends JUnitRunnableSpec {
   val randomUUID: URIO[random.Random, UUID] = UIO(UUID.randomUUID())
 
   // TODO: Clean the database
-  val cleanDatabase = UIO(println("Clean database"))
+  val cleanDatabase: URIO[Has[TransactionHandler], Unit] =
+    ZIO.accessM[Has[TransactionHandler]] { trx =>
+      // TODO: One trx
+      for {
+        _ <- trx.get.run(sql"set foreign_key_checks = 0".update.run)
+        tables <- trx.get.run(sql"show tables".query[String].to[List])
+        _ <- ZIO.foreach_(tables) { table =>
+          trx.get.run((fr"truncate table " ++ Fragment.const(table)).update.run)
+        }
+        _ <- trx.get.run(sql"set foreign_key_checks = 1".update.run)
+      } yield ()
+    }
 
   override def spec =
     (
@@ -128,7 +141,7 @@ class ApiSpec extends JUnitRunnableSpec {
             } yield assert(blogs.map(_.id.value))(equalTo(List(blogId)))
           }
         )
-      ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase)
+      ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase.provideLayer(transactionHandler))
         @@ beforeAll(Migration.migrate.provideLayer(testDatabaseConfig >>> Migration.layer))
     ).provideSomeLayer[TestEnvironment](dependencies)
 
