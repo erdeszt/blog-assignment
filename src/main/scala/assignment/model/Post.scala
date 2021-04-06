@@ -1,6 +1,5 @@
 package assignment.model
 
-import io.circe._
 import java.util.UUID
 
 final case class Post(

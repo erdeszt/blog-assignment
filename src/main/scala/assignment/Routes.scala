@@ -1,18 +1,12 @@
 package assignment
 
 import assignment.dto._
-import assignment.model.DomainError.EmptyBlogName
 import assignment.model._
 import assignment.service._
 import io.circe.generic.semiauto.deriveCodec
 import org.http4s.HttpRoutes
-import hotpotato._
-import shapeless.Coproduct
-import shapeless.ops.coproduct.Unifier
-//import sttp.tapir._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
-import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
 import sttp.tapir.ztapir._
 import zio._

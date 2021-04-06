@@ -2,10 +2,8 @@ package assignment.service
 
 import assignment.model.DomainError._
 import assignment.model._
-import cats.data.OptionT
 import hotpotato._
 import zio._
-import zio.interop.catz._
 
 // TODO: Consider moving id provider to store
 trait Api {

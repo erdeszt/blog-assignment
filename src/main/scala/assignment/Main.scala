@@ -1,6 +1,5 @@
 package assignment
 
-import assignment.model._
 import assignment.service._
 import org.http4s.implicits._
 import org.http4s.server.Router

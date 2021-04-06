@@ -4,7 +4,7 @@ import assignment.DatabaseConfig
 import org.flywaydb.core.Flyway
 import zio._
 
-import java.sql.{Connection, DriverManager}
+import java.sql.DriverManager
 
 trait Migration {
   def migrate: UIO[Unit]
@@ -33,6 +33,7 @@ object Migration {
           .load()
 
         flyway.migrate()
+        ()
       }
     }
 
@@ -45,7 +46,7 @@ object Migration {
         .use { connection =>
           ZManaged
             .fromAutoCloseable(UIO(connection.createStatement()))
-            .use(statement => UIO(statement.execute(createStatement)))
+            .use(statement => UIO(statement.execute(createStatement)).unit)
         }
     }
   }
