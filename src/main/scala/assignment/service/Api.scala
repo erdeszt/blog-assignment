@@ -38,7 +38,9 @@ object Api {
         _ <- ZIO.unless(blogSlugFormat.matches(slug.value))(ZIO.fail(InvalidBlogSlug(slug).embed))
         _ <- ZIO.when(posts.exists { case (_, content) => content.value.isEmpty })(ZIO.fail(EmptyPostContent().embed))
         // TODO: Race condition
-        _ <- ZIO.whenM(blogStore.getBySlug(slug).map(_.nonEmpty))(ZIO.fail(BlogSlugAlreadyExists(slug).embed))
+        _ <- ZIO.whenM(blogStore.queryBlogs(Query.ByBlogSlug(slug)).map(_.nonEmpty))(
+          ZIO.fail(BlogSlugAlreadyExists(slug).embed),
+        )
         blogId <- idProvider.generateId.map(Blog.Id)
         blogPosts <- ZIO.foreach(posts) {
           case (title, content) =>
@@ -68,15 +70,8 @@ object Api {
     }
 
     override def queryBlogs(query: Query, includePosts: Boolean): UIO[List[Blog]] = {
-      val blogsQuery = query match {
-        case Query.ByBlogId(id) =>
-          blogStore.getById(id).map(_.toList)
-        case Query.ByBlogSlug(slug) =>
-          blogStore.getBySlug(slug).map(_.toList)
-      }
-
       for {
-        blogs <- blogsQuery
+        blogs <- blogStore.queryBlogs(query)
         posts <- if (includePosts) {
           postStore
             .getPostsByBlogIds(blogs.map(_.id))

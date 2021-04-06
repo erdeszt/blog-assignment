@@ -6,9 +6,9 @@ import doobie.syntax.string._
 import zio._
 
 trait BlogStore {
-  def createBlog(id:  Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit]
-  def getById(id:     Blog.Id): UIO[Option[BlogStore.BlogRead]]
-  def getBySlug(slug: Blog.Slug): UIO[Option[BlogStore.BlogRead]]
+  def createBlog(id:    Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit]
+  def getById(id:       Blog.Id): UIO[Option[BlogStore.BlogRead]]
+  def queryBlogs(query: Query): UIO[List[BlogStore.BlogRead]]
 }
 
 object BlogStore extends UUIDDatabaseMapping {
@@ -25,16 +25,28 @@ object BlogStore extends UUIDDatabaseMapping {
       sql"insert into blog (id, name, slug) values (${id}, ${name}, ${slug})".update.run.void
     }
 
-    override def getById(id: Blog.Id): UIO[Option[BlogRead]] = {
-      trx.run {
-        sql"select id, name, slug from blog where id = ${id} order by created_at desc".query[BlogRead].option
-      }
+    override def getById(id: Blog.Id): UIO[Option[BlogStore.BlogRead]] = {
+      queryBlogs(Query.ByBlogId(id)).map(_.headOption)
     }
 
-    override def getBySlug(slug: Blog.Slug): UIO[Option[BlogStore.BlogRead]] = {
-      trx.run {
-        sql"select id, name, slug from blog where slug = ${slug} order by created_at desc".query[BlogRead].option
+    override def queryBlogs(query: Query): UIO[List[BlogRead]] = {
+      val selector = fr"select blog.id, blog.name, blog.slug from blog"
+      val fullQuery = query match {
+        case Query.ByBlogId(id) =>
+          selector ++ fr"where blog.id = ${id}"
+        case Query.ByBlogSlug(slug) =>
+          selector ++ fr"were blog.slug = ${slug}"
+        case Query.ByBlogName(name) =>
+          selector ++ fr"where blog.name like ${name}"
+        case Query.HasPosts() =>
+          selector ++ fr"left join post on blog.id = post.blog_id having count(post.id) > 0"
+        case Query.ByPostTitle(title) =>
+          selector ++ fr"join post on blog.id = post.blog_id and post.title like ${title}"
+        case Query.ByPostContent(content) =>
+          selector ++ fr"join post on blog.id = post.blog_id and post.content like ${content}"
       }
+
+      trx.run(fullQuery.query[BlogRead].to[List])
     }
 
   }
