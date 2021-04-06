@@ -51,10 +51,11 @@ object Routes {
     error match {
       case DomainError.EmptyBlogName()          => ErrorResponse(1, error.getMessage)
       case DomainError.EmptyBlogSlug()          => ErrorResponse(2, error.getMessage)
-      case DomainError.EmptyPostContent()       => ErrorResponse(3, error.getMessage)
-      case DomainError.BlogNotFound(_)          => ErrorResponse(4, error.getMessage)
-      case DomainError.BlogSlugAlreadyExists(_) => ErrorResponse(5, error.getMessage)
-      case DomainError.InvalidBlogSlug(_)       => ErrorResponse(6, error.getMessage)
+      case DomainError.InvalidBlogSlug(_)       => ErrorResponse(3, error.getMessage)
+      case DomainError.EmptyPostTitle()         => ErrorResponse(4, error.getMessage)
+      case DomainError.EmptyPostContent()       => ErrorResponse(5, error.getMessage)
+      case DomainError.BlogNotFound(_)          => ErrorResponse(6, error.getMessage)
+      case DomainError.BlogSlugAlreadyExists(_) => ErrorResponse(7, error.getMessage)
     }
   }
 
