@@ -1,11 +1,13 @@
 ## Blog assignment
 
-TODO:
+### TODO:
+* Write documentation
 * Logging
 * WebSpec
-* Scapegoat
-* Auth?
-* TODO: Consider moving id provider to store
+* Lint
+    * Scapegoat doesn't work with current sbt version(try downgrade?)
+    * Wartremover also doesn't work properly
+* Consider moving id provider to store
 * [BUG]Race condition in existing slug check
 
 
@@ -19,6 +21,7 @@ TODO:
   DB_DATABASE=assignment \
   DB_USER=root \
   DB_PASSWORD=root \
+  JWT_SECRET=secret \
   sbt run
 ```
 
