@@ -67,7 +67,7 @@ class ApiSpec extends JUnitRunnableSpec {
               _ <- FakeIdProvider.set(blogId)
 
               _ <- Api.createBlog(Blog.Name("test blog"), List.empty)
-              blogs <- Api.queryBlogs(Query.ById(Blog.Id(blogId)))
+              blogs <- Api.queryBlogs(Query.ByBlogId(Blog.Id(blogId)))
             } yield assert(blogs.map(_.id.value))(equalTo(List(blogId)))
           )
         )

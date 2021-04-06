@@ -13,7 +13,7 @@ import zio.interop.catz._
   */
 trait Api {
   def createBlog(name:   Blog.Name, posts: List[(Option[Post.Title], Post.Body)]): UIO[(Blog.Id, List[Post.Id])]
-  def createPost(blogId: Blog.Id, title: Post.Title, body: Post.Body): UIO[Post.Id]
+  def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): UIO[Post.Id]
   def queryBlogs(query:  Query): UIO[List[Blog]]
 }
 
@@ -41,13 +41,13 @@ object Api {
       } yield (blogId, blogPosts.map(_.id))
     }
 
-    override def createPost(blogId: Blog.Id, title: Post.Title, body: Post.Body): UIO[Post.Id] = {
+    override def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): UIO[Post.Id] = {
       ZIO.die(new Exception("Stop"))
     }
 
     override def queryBlogs(query: Query): UIO[List[Blog]] = {
       query match {
-        case Query.ById(id) =>
+        case Query.ByBlogId(id) =>
           val blogWithPosts = for {
             blog <- OptionT(blogStore.getById(id))
             posts <- OptionT.liftF(postStore.getPostsByBlogId(id))
@@ -73,7 +73,7 @@ object Api {
   ): URIO[Has[Api], (Blog.Id, List[Post.Id])] =
     ZIO.accessM(_.get.createBlog(name, posts))
 
-  def createPost(blogId: Blog.Id, title: Post.Title, body: Post.Body): URIO[Has[Api], Post.Id] = {
+  def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): URIO[Has[Api], Post.Id] = {
     ZIO.accessM(_.get.createPost(blogId, title, body))
   }
 

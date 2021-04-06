@@ -1,7 +1,7 @@
 package assignment
 
 import assignment.dto._
-import assignment.model.Blog
+import assignment.model._
 import assignment.service.Api
 import io.circe.generic.semiauto.deriveCodec
 import org.http4s.HttpRoutes
@@ -46,16 +46,22 @@ object Routes {
       .out(jsonBody[QueryBlogsResponse])
       .errorOut(jsonBody[ErrorResponse])
 
-  def create: URIO[Has[Api], HttpRoutes[RIO[Clock, *]]] = {
-    ZIO.service[Api].map { api =>
-      val createBlogRoute = Routes.createBlog.zServerLogic { i =>
-        UIO(CreateBlogResponse(Blog.Id(UUID.randomUUID()), List.empty))
+  def create(): HttpRoutes[RIO[Has[Api] with Clock, *]] = {
+    val createBlogRoute = Routes.createBlog.zServerLogic { request =>
+      Api.createBlog(request.name, request.posts.map(post => (post.title, post.body))).map {
+        case (blogId, postIds) =>
+          CreateBlogResponse(blogId, postIds)
       }
-      val createPostRoute = Routes.createPost.zServerLogic(i => ???)
-      val queryBlogsRoute = Routes.queryBlogs.zServerLogic(i => ???)
-
-      ZHttp4sServerInterpreter.from(List(createBlogRoute, createPostRoute, queryBlogsRoute)).toRoutes
     }
+    val createPostRoute = Routes.createPost.zServerLogic { request =>
+      Api.createPost(request.blogId, request.create.title, request.create.body).map(CreatePostResponse(_))
+    }
+    // TODO: Request type
+    val queryBlogsRoute = Routes.queryBlogs.zServerLogic { request =>
+      Api.queryBlogs(Query.ByBlogId(Blog.Id(UUID.randomUUID()))).map(QueryBlogsResponse(_))
+    }
+
+    ZHttp4sServerInterpreter.from(List(createBlogRoute, createPostRoute, queryBlogsRoute)).toRoutes
   }
 
 }
