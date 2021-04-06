@@ -106,6 +106,18 @@ class ApiSpec extends JUnitRunnableSpec {
               error <- Api.createBlog(Blog.Name("notok"), slug, List.empty).toDomainError.either
             } yield assert(error)(isLeft(equalTo(BlogSlugAlreadyExists(slug))))
           },
+          testM("should fail if the title is provided but empty") {
+            for {
+              error <- Api
+                .createBlog(
+                  Blog.Name("ok"),
+                  Blog.Slug("ok"),
+                  List((Some(Post.Title("")), Post.Content("ok"))),
+                )
+                .toDomainError
+                .either
+            } yield assert(error)(isLeft(equalTo(EmptyPostTitle())))
+          },
           testM("should fail if the content is empty") {
             for {
               error <- Api
@@ -141,6 +153,19 @@ class ApiSpec extends JUnitRunnableSpec {
                 .toDomainError
                 .either
             } yield assert(error)(isLeft(equalTo(BlogNotFound(blogId))))
+          },
+          testM("should fail if the title is provided but empty") {
+            for {
+              blogId <- randomUUID
+              expectedPostId <- randomUUID
+              _ <- FakeIdProvider.set(List(blogId, expectedPostId))
+
+              _ <- Api.createBlog(Blog.Name("blog1"), Blog.Slug("blog1"), List.empty).toDomainError
+              error <- Api
+                .createPost(Blog.Id(blogId), Some(Post.Title("")), Post.Content("content"))
+                .toDomainError
+                .either
+            } yield assert(error)(isLeft(equalTo(EmptyPostTitle())))
           },
           testM("should fail if the content is empty") {
             for {

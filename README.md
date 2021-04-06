@@ -1,7 +1,6 @@
 ## Blog assignment
 
 TODO:
-* Option[NonEmptyString] for post.title?
 * Logging
 * WebSpec
 * Scapegoat

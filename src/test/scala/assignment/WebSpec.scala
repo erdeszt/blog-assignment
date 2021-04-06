@@ -24,7 +24,8 @@ class WebSpec extends JUnitRunnableSpec {
           val backend = HttpURLConnectionBackend()
           for {
             response: Response[DecodeResult[Either[Routes.ErrorResponse, QueryBlogsResponse]]] <- UIO(
-              request(QueryBlogsRequest(model.Query.ByBlogId(Blog.Id(UUID.randomUUID())))).send(backend),
+              request(QueryBlogsRequest(model.Query.ByBlogId(Blog.Id(UUID.randomUUID())), includePosts = false))
+                .send(backend),
             )
           } yield assert(response.body)(equalTo(DecodeResult.Value(Right(QueryBlogsResponse(List.empty)))))
         },

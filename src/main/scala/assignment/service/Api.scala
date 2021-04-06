@@ -3,6 +3,8 @@ package assignment.service
 import assignment.model.DomainError._
 import assignment.model._
 import hotpotato._
+import shapeless.Coproduct
+import shapeless.ops.coproduct.Basis
 import zio._
 
 trait Api {
@@ -17,8 +19,10 @@ trait Api {
 
 object Api {
 
-  type CreateBlogError = OneOf5[EmptyBlogName, EmptyBlogSlug, InvalidBlogSlug, BlogSlugAlreadyExists, EmptyPostContent]
-  type CreatePostError = OneOf2[BlogNotFound, EmptyPostContent]
+  type PostValidationError = OneOf2[EmptyPostTitle, EmptyPostContent]
+  type CreateBlogError =
+    OneOf6[EmptyBlogName, EmptyBlogSlug, InvalidBlogSlug, BlogSlugAlreadyExists, EmptyPostTitle, EmptyPostContent]
+  type CreatePostError = OneOf3[BlogNotFound, EmptyPostTitle, EmptyPostContent]
 
   private val blogSlugFormat = "^[a-zA-Z][a-zA-Z0-9\\-]*$".r
 
@@ -35,7 +39,7 @@ object Api {
         _ <- ZIO.when(name.value.isEmpty)(ZIO.fail(EmptyBlogName().embed))
         _ <- ZIO.when(slug.value.isEmpty)(ZIO.fail(EmptyBlogSlug().embed))
         _ <- ZIO.unless(blogSlugFormat.matches(slug.value))(ZIO.fail(InvalidBlogSlug(slug).embed))
-        _ <- ZIO.when(posts.exists { case (_, content) => content.value.isEmpty })(ZIO.fail(EmptyPostContent().embed))
+        _ <- ZIO.foreach_(posts) { case (title, content) => validatePost[CreateBlogError](title, content) }
         _ <- ZIO.whenM(blogStore.queryBlogs(Query.ByBlogSlug(slug)).map(_.nonEmpty))(
           ZIO.fail(BlogSlugAlreadyExists(slug).embed),
         )
@@ -60,7 +64,7 @@ object Api {
     ): IO[CreatePostError, Post.Id] = {
       implicit val errorEmbedder = Embedder.make[CreatePostError]
       for {
-        _ <- ZIO.when(content.value.isEmpty)(ZIO.fail(EmptyPostContent().embed))
+        _ <- validatePost[CreatePostError](title, content)
         _ <- blogStore.getById(blogId).someOrFail(BlogNotFound(blogId).embed)
         id <- idProvider.generateId.map(Post.Id)
         _ <- trx.run(postStore.createPost(PostStore.Create(id, blogId, title, content)))
@@ -85,6 +89,17 @@ object Api {
           posts.getOrElse(blog.id, List.empty),
         )
       }
+    }
+
+    def validatePost[Error <: Coproduct](
+        title:        Option[Post.Title],
+        content:      Post.Content,
+    )(implicit basis: Basis[Error, PostValidationError]): IO[Error, Unit] = {
+      implicit val embedder = Embedder.make[PostValidationError]
+      for {
+        _ <- ZIO.when(title.exists(_.value.isEmpty))(ZIO.fail(basis.inverse(Right(EmptyPostTitle().embed))))
+        _ <- ZIO.when(content.value.isEmpty)(ZIO.fail(basis.inverse(Right(EmptyPostContent().embed))))
+      } yield ()
     }
 
   }
