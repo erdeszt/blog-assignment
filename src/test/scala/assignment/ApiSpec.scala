@@ -37,10 +37,9 @@ class ApiSpec extends JUnitRunnableSpec {
         DatabaseConfig.Password("root"),
       ),
     )
-  val transactionHandler = testDatabaseConfig >>> Layers.transactionHandler
-  val stores             = transactionHandler >+> (BlogStore.layer ++ PostStore.layer)
-  val idProvider         = idRefLayer >>> FakeIdProvider.layer
-  val dependencies       = idRefLayer ++ ((idProvider ++ stores) >>> Api.layer)
+  val stores       = testDatabaseConfig >>> Layers.stores
+  val idProvider   = idRefLayer >>> FakeIdProvider.layer
+  val dependencies = idRefLayer ++ ((idProvider ++ stores) >>> Api.layer)
 
   val randomUUID: URIO[random.Random, UUID] = UIO(UUID.randomUUID())
 
@@ -183,7 +182,7 @@ class ApiSpec extends JUnitRunnableSpec {
               assert(blogs.head.posts.map(_.id.value))(hasSameElements(postIds))
           },
         ),
-      ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase.provideLayer(transactionHandler))
+      ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase.provideLayer(stores))
         @@ beforeAll(Migration.migrate.provideLayer(testDatabaseConfig >>> Migration.layer))
         @@ sequential
     ).provideSomeLayer[TestEnvironment](dependencies)

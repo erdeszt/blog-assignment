@@ -21,9 +21,11 @@ object Layers {
       )
     }
 
+  val stores: URLayer[Has[DatabaseConfig], Has[TransactionHandler] with Has[BlogStore] with Has[PostStore]] =
+    transactionHandler >+> (PostStore.layer ++ BlogStore.layer)
+
   val api: URLayer[ZEnv, Has[Api]] = {
-    val stores          = (DatabaseConfig.layer >>> transactionHandler) >+> (PostStore.layer ++ BlogStore.layer)
-    val apiDependencies = IdProvider.layer ++ stores
+    val apiDependencies = IdProvider.layer ++ (DatabaseConfig.layer >>> stores)
 
     apiDependencies >>> Api.layer
   }
