@@ -3,6 +3,8 @@ package assignment
 import assignment.model.DomainError._
 import assignment.model._
 import assignment.service._
+import cats.syntax.functor._
+import cats.syntax.traverse._
 import doobie.syntax.string._
 import doobie.util.fragment.Fragment
 
@@ -38,18 +40,18 @@ class ApiSpec extends JUnitRunnableSpec {
 
   val randomUUID: URIO[random.Random, UUID] = UIO(UUID.randomUUID())
 
-  // TODO: Clean the database
   val cleanDatabase: URIO[Has[TransactionHandler], Unit] =
     ZIO.accessM[Has[TransactionHandler]] { trx =>
-      // TODO: One trx
-      for {
-        _ <- trx.get.run(sql"set foreign_key_checks = 0".update.run)
-        tables <- trx.get.run(sql"show tables".query[String].to[List])
-        _ <- ZIO.foreach_(tables) { table =>
-          trx.get.run((fr"truncate table " ++ Fragment.const(table)).update.run)
-        }
-        _ <- trx.get.run(sql"set foreign_key_checks = 1".update.run)
-      } yield ()
+      trx.get.run {
+        for {
+          _ <- sql"set foreign_key_checks = 0".update.run
+          tables <- sql"show tables".query[String].to[List]
+          _ <- tables.filter(_ != "flyway_schema_history").traverse[Trx, Unit] { table =>
+            (fr"truncate table " ++ Fragment.const(table)).update.run.void
+          }
+          _ <- sql"set foreign_key_checks = 1".update.run
+        } yield ()
+      }
     }
 
   override def spec =
