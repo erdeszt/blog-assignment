@@ -11,7 +11,8 @@ import zio.interop.catz._
 trait Api {
   def createBlog(
       name:  Blog.Name,
-      posts: List[(Option[Post.Title], Post.Body)]
+      slug:  Blog.Slug,
+      posts: List[(Option[Post.Title], Post.Body)],
   ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])]
   def createPost(blogId: Blog.Id, title:      Option[Post.Title], body: Post.Body): IO[Api.CreatePostError, Post.Id]
   def queryBlogs(query:  Query, includePosts: Boolean): UIO[List[Blog]]
@@ -19,7 +20,7 @@ trait Api {
 
 object Api {
 
-  type CreateBlogError = OneOf2[EmptyBlogName, EmptyPostBody]
+  type CreateBlogError = OneOf4[EmptyBlogName, EmptyBlogSlug, BlogSlugAlreadyExists, EmptyPostBody]
   type CreatePostError = OneOf2[BlogNotFound, EmptyPostBody]
 
   final case class Live(idProvider: IdProvider, blogStore: BlogStore, postStore: PostStore, trx: TransactionHandler)
@@ -27,12 +28,16 @@ object Api {
 
     override def createBlog(
         name:  Blog.Name,
-        posts: List[(Option[Post.Title], Post.Body)]
+        slug:  Blog.Slug,
+        posts: List[(Option[Post.Title], Post.Body)],
     ): IO[CreateBlogError, (Blog.Id, List[Post.Id])] = {
       implicit val errorEmbedder = Embedder.make[CreateBlogError]
       for {
         _ <- ZIO.when(name.value.isEmpty)(ZIO.fail(EmptyBlogName().embed))
+        _ <- ZIO.when(slug.value.isEmpty)(ZIO.fail(EmptyBlogSlug().embed))
         _ <- ZIO.when(posts.exists { case (_, body) => body.value.isEmpty })(ZIO.fail(EmptyPostBody().embed))
+        // TODO: Race condition
+        _ <- ZIO.whenM(blogStore.getBySlug(slug).map(_.nonEmpty))(ZIO.fail(BlogSlugAlreadyExists(slug).embed))
         blogId <- idProvider.generateId.map(Blog.Id)
         blogPosts <- ZIO.foreach(posts) {
           case (title, body) =>
@@ -40,7 +45,7 @@ object Api {
         }
         _ <- trx.run {
           for {
-            _ <- blogStore.createBlog(blogId, name, Blog.Slug(name.value))
+            _ <- blogStore.createBlog(blogId, name, slug)
             _ <- postStore.createPosts(blogPosts)
           } yield ()
         }
@@ -50,7 +55,7 @@ object Api {
     override def createPost(
         blogId: Blog.Id,
         title:  Option[Post.Title],
-        body:   Post.Body
+        body:   Post.Body,
     ): IO[CreatePostError, Post.Id] = {
       implicit val errorEmbedder = Embedder.make[CreatePostError]
       for {
@@ -62,23 +67,29 @@ object Api {
     }
 
     override def queryBlogs(query: Query, includePosts: Boolean): UIO[List[Blog]] = {
-      query match {
+      val blogsQuery = query match {
         case Query.ByBlogId(id) =>
-          val blogWithPosts = for {
-            blog <- OptionT(blogStore.getById(id))
-            posts <- if (includePosts) {
-              OptionT.liftF(postStore.getPostsByBlogId(id))
-            } else {
-              OptionT.pure[UIO](List.empty)
-            }
-          } yield Blog(
-            blog.id,
-            blog.name,
-            blog.slug,
-            posts
-          )
+          blogStore.getById(id).map(_.toList)
+        case Query.ByBlogSlug(slug) =>
+          blogStore.getBySlug(slug).map(_.toList)
+      }
 
-          blogWithPosts.value.map(_.toList)
+      for {
+        blogs <- blogsQuery
+        posts <- if (includePosts) {
+          postStore
+            .getPostsByBlogIds(blogs.map(_.id))
+            .map(_.groupBy(_.blogId))
+        } else {
+          UIO(Map.empty[Blog.Id, List[Post]])
+        }
+      } yield blogs.map { blog =>
+        Blog(
+          blog.id,
+          blog.name,
+          blog.slug,
+          posts.getOrElse(blog.id, List.empty),
+        )
       }
     }
 
@@ -89,14 +100,15 @@ object Api {
 
   def createBlog(
       name:  Blog.Name,
-      posts: List[(Option[Post.Title], Post.Body)]
+      slug:  Blog.Slug,
+      posts: List[(Option[Post.Title], Post.Body)],
   ): ZIO[Has[Api], CreateBlogError, (Blog.Id, List[Post.Id])] =
-    ZIO.accessM(_.get.createBlog(name, posts))
+    ZIO.accessM(_.get.createBlog(name, slug, posts))
 
   def createPost(
       blogId: Blog.Id,
       title:  Option[Post.Title],
-      body:   Post.Body
+      body:   Post.Body,
   ): ZIO[Has[Api], Api.CreatePostError, Post.Id] = {
     ZIO.accessM(_.get.createPost(blogId, title, body))
   }

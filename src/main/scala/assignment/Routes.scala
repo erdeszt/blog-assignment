@@ -25,7 +25,7 @@ object Routes {
 
   final case class ErrorResponse(
       code:    Int,
-      message: String
+      message: String,
   )
 
   implicit val errorEncoder = deriveCodec[ErrorResponse]
@@ -53,15 +53,16 @@ object Routes {
   def errorHandler(error: DomainError): ErrorResponse = {
     error match {
       case DomainError.EmptyBlogName() => ErrorResponse(1, error.getMessage)
-      case DomainError.EmptyPostBody() => ErrorResponse(2, error.getMessage)
-      case DomainError.BlogNotFound(_) => ErrorResponse(3, error.getMessage)
+      case DomainError.EmptyBlogSlug() => ErrorResponse(2, error.getMessage)
+      case DomainError.EmptyPostBody() => ErrorResponse(3, error.getMessage)
+      case DomainError.BlogNotFound(_) => ErrorResponse(4, error.getMessage)
     }
   }
 
   def create(): HttpRoutes[RIO[Has[Api] with Clock, *]] = {
     val createBlogRoute = Routes.createBlog.zServerLogic { request =>
       Api
-        .createBlog(request.name, request.posts.map(post => (post.title, post.body)))
+        .createBlog(request.name, request.slug, request.posts.map(post => (post.title, post.body)))
         .handleDomainErrors(errorHandler)
         .map {
           case (blogId, postIds) =>

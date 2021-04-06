@@ -6,8 +6,9 @@ import doobie.syntax.string._
 import zio._
 
 trait BlogStore {
-  def createBlog(id: Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit]
-  def getById(id:    Blog.Id): UIO[Option[BlogStore.BlogRead]]
+  def createBlog(id:  Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit]
+  def getById(id:     Blog.Id): UIO[Option[BlogStore.BlogRead]]
+  def getBySlug(slug: Blog.Slug): UIO[Option[BlogStore.BlogRead]]
 }
 
 object BlogStore extends DoobieUUIDUtils {
@@ -27,6 +28,12 @@ object BlogStore extends DoobieUUIDUtils {
     override def getById(id: Blog.Id): UIO[Option[BlogRead]] = {
       trx.run {
         sql"select id, name, slug from blog where id = ${id} order by created_at desc".query[BlogRead].option
+      }
+    }
+
+    override def getBySlug(slug: Blog.Slug): UIO[Option[BlogStore.BlogRead]] = {
+      trx.run {
+        sql"select id, name, slug from blog where slug = ${slug} order by created_at desc".query[BlogRead].option
       }
     }
 

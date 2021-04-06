@@ -7,6 +7,7 @@ import cats.syntax.functor._
 import cats.syntax.traverse._
 import doobie.syntax.string._
 import doobie.util.fragment.Fragment
+import org.junit.runner.RunWith
 
 import java.util.UUID
 import zio._
@@ -19,7 +20,8 @@ import zio.test.junit._
 import scala.util.Try
 
 // TODO: Option[NonEmptyString] for title?
-object ApiSpec extends JUnitRunnableSpec {
+object ApiSpecObject extends ApiSpec
+class ApiSpec extends JUnitRunnableSpec {
 
   val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] =
     Ref.make[List[UUID]](Nil).map(FakeIdProvider.Ref).toLayer
@@ -28,12 +30,12 @@ object ApiSpec extends JUnitRunnableSpec {
       DatabaseConfig(
         DatabaseConfig.Host("localhost"),
         DatabaseConfig.Port(
-          sys.env.get("DB_PORT").flatMap(rawPort => Try(rawPort.toInt).toOption).getOrElse(3306)
+          sys.env.get("DB_PORT").flatMap(rawPort => Try(rawPort.toInt).toOption).getOrElse(3306),
         ),
         DatabaseConfig.Database("assignment_test"),
         DatabaseConfig.User("root"),
-        DatabaseConfig.Password("root")
-      )
+        DatabaseConfig.Password("root"),
+      ),
     )
   val transactionHandler = testDatabaseConfig >>> Layers.transactionHandler
   val stores             = transactionHandler >+> (BlogStore.layer ++ PostStore.layer)
@@ -60,14 +62,14 @@ object ApiSpec extends JUnitRunnableSpec {
     (
       suite("Api")(
         suite("Create blog")(
-          testM("should succeed with correct name")(
+          testM("should succeed with correct name") {
             for {
               expectedId <- randomUUID
               _ <- FakeIdProvider.set(expectedId)
-              (blogId, _) <- Api.createBlog(Blog.Name("test blog"), List.empty).toDomainError
+              (blogId, _) <- Api.createBlog(Blog.Name("test blog"), Blog.Slug("test-blog"), List.empty).toDomainError
             } yield assert(blogId.value)(equalTo(expectedId))
-          ),
-          testM("should create the posts")(
+          },
+          testM("should create the posts") {
             for {
               expectedBlogId <- randomUUID
               expectedPostIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
@@ -76,93 +78,108 @@ object ApiSpec extends JUnitRunnableSpec {
               }
               _ <- FakeIdProvider.set(expectedBlogId :: expectedPostIds)
 
-              (blogId, postIds) <- Api.createBlog(Blog.Name("test blog"), posts).toDomainError
+              (blogId, postIds) <- Api.createBlog(Blog.Name("test blog"), Blog.Slug("test-blog"), posts).toDomainError
             } yield assert(blogId.value)(equalTo(expectedBlogId)) &&
               assert(postIds.map(_.value))(equalTo(expectedPostIds))
-          ),
-          testM("should fail if the name is empty")(
+          },
+          testM("should fail if the name is empty") {
             for {
-              error <- Api.createBlog(Blog.Name(""), List.empty).toDomainError.either
+              error <- Api.createBlog(Blog.Name(""), Blog.Slug("ok"), List.empty).toDomainError.either
             } yield assert(error)(isLeft(equalTo(EmptyBlogName())))
-          ),
-          testM("should fail if the body is empty")(
+          },
+          testM("should fail if the slug is empty") {
+            for {
+              error <- Api.createBlog(Blog.Name("ok"), Blog.Slug(""), List.empty).toDomainError.either
+            } yield assert(error)(isLeft(equalTo(EmptyBlogSlug())))
+          },
+          testM("should fail if the slug is already in use") {
+            val slug = Blog.Slug("bad")
+            for {
+              blogId1 <- randomUUID
+              blogId2 <- randomUUID
+              _ <- FakeIdProvider.set(List(blogId1, blogId2))
+
+              _ <- Api.createBlog(Blog.Name("ok"), slug, List.empty).toDomainError
+              error <- Api.createBlog(Blog.Name("notok"), slug, List.empty).toDomainError.either
+            } yield assert(error)(isLeft(equalTo(BlogSlugAlreadyExists(slug))))
+          },
+          testM("should fail if the body is empty") {
             for {
               error <- Api
                 .createBlog(
                   Blog.Name("ok"),
-                  List(
-                    (None, Post.Body("ok")),
-                    (None, Post.Body(""))
-                  )
+                  Blog.Slug("ok"),
+                  List((None, Post.Body("ok")), (None, Post.Body(""))),
                 )
                 .toDomainError
                 .either
             } yield assert(error)(isLeft(equalTo(EmptyPostBody())))
-          )
+          },
         ),
         suite("Create post")(
-          testM("should succeed with correct input")(
+          testM("should succeed with correct input") {
             for {
               blogId <- randomUUID
               expectedPostId <- randomUUID
               _ <- FakeIdProvider.set(List(blogId, expectedPostId))
 
-              _ <- Api.createBlog(Blog.Name("blog1"), List.empty).toDomainError
+              _ <- Api.createBlog(Blog.Name("blog1"), Blog.Slug("blog1"), List.empty).toDomainError
               postId <- Api
                 .createPost(Blog.Id(blogId), Some(Post.Title("post1")), Post.Body("post1 body"))
                 .toDomainError
             } yield assert(postId.value)(equalTo(expectedPostId))
-          ),
-          testM("should fail if the blog doesn't exist")(
+          },
+          testM("should fail if the blog doesn't exist") {
             for {
               blogId <- randomUUID.map(Blog.Id)
 
               error <- Api.createPost(blogId, Some(Post.Title("post1")), Post.Body("post1 body")).toDomainError.either
             } yield assert(error)(isLeft(equalTo(BlogNotFound(blogId))))
-          ),
-          testM("should fail if the body is empty")(
+          },
+          testM("should fail if the body is empty") {
             for {
               blogId <- randomUUID
               expectedPostId <- randomUUID
               _ <- FakeIdProvider.set(List(blogId, expectedPostId))
 
-              _ <- Api.createBlog(Blog.Name("blog1"), List.empty).toDomainError
+              _ <- Api.createBlog(Blog.Name("blog1"), Blog.Slug("blog1"), List.empty).toDomainError
               error <- Api
                 .createPost(Blog.Id(blogId), Some(Post.Title("post1")), Post.Body(""))
                 .toDomainError
                 .either
             } yield assert(error)(isLeft(equalTo(EmptyPostBody())))
-          )
+          },
         ),
         suite("Query blogs")(
-          testM("should find a blog by id")(
+          testM("should find a blog by id") {
             for {
               blogId <- randomUUID
               postIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
               posts = postIds.map(id => (None, Post.Body(s"Post: ${id}")))
               _ <- FakeIdProvider.set(blogId :: postIds)
 
-              _ <- Api.createBlog(Blog.Name("test blog"), posts).toDomainError
+              _ <- Api.createBlog(Blog.Name("test blog"), Blog.Slug("test-blog"), posts).toDomainError
               blogs <- Api.queryBlogs(Query.ByBlogId(Blog.Id(blogId)), includePosts = false)
             } yield assert(blogs)(hasSize(equalTo(1))) &&
               assert(blogs.map(_.id.value))(hasSameElements(List(blogId))) &&
               assert(blogs.head.posts)(isEmpty)
-          ),
-          testM("should return the posts if requested")(
+          },
+          testM("should return the posts if requested") {
             for {
               blogId <- randomUUID
               postIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
               posts = postIds.map(id => (None, Post.Body(s"Post: ${id}")))
               _ <- FakeIdProvider.set(blogId :: postIds)
 
-              _ <- Api.createBlog(Blog.Name("test blog"), posts).toDomainError
+              _ <- Api.createBlog(Blog.Name("test blog"), Blog.Slug("test-blog"), posts).toDomainError
               blogs <- Api.queryBlogs(Query.ByBlogId(Blog.Id(blogId)), includePosts = true)
             } yield assert(blogs)(hasSize(equalTo(1))) &&
               assert(blogs.head.posts.map(_.id.value))(hasSameElements(postIds))
-          )
-        )
+          },
+        ),
       ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase.provideLayer(transactionHandler))
         @@ beforeAll(Migration.migrate.provideLayer(testDatabaseConfig >>> Migration.layer))
+        @@ sequential
     ).provideSomeLayer[TestEnvironment](dependencies)
 
 }
