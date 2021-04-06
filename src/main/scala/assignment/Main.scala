@@ -13,12 +13,10 @@ import zio.interop.catz._
   * TODO:
   *    - Logging
   *    - ?Auth?
-  *    - Tests
   *    - Docs
   *    - Dockerize
   *    - Setup CI
   */
-//object Main extends App {
 object Main extends CatsApp {
 
   val layers: URLayer[ZEnv, Has[Migration] with Has[Api]] =

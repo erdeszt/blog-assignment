@@ -7,12 +7,7 @@ import hotpotato._
 import zio._
 import zio.interop.catz._
 
-/**
-  * TODO:
-  *    - Setup stores
-  *    - Domain errors
-  *    - Consider moving id provider to store
-  */
+// TODO: Consider moving id provider to store
 trait Api {
   def createBlog(
       name:  Blog.Name,
