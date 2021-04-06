@@ -1,7 +1,8 @@
 package assignment
 
-import assignment.model.DomainError._
+import assignment.Config._
 import assignment.model._
+import assignment.model.DomainError._
 import assignment.service._
 import cats.syntax.functor._
 import cats.syntax.traverse._
@@ -37,7 +38,8 @@ class ApiSpec extends JUnitRunnableSpec {
   }
   val stores       = testDatabaseConfig >>> Layers.stores
   val migration    = testDatabaseConfig >>> Migration.layer
-  val dependencies = (migration ++ (idRefLayer >+> FakeIdProvider.layer) ++ stores) >+> Api.layer
+  val user         = ZLayer.succeed(User(User.Id(UUID.randomUUID())))
+  val dependencies = (user ++ migration ++ (idRefLayer >+> FakeIdProvider.layer) ++ stores) >+> Api.layer
 
   val randomUUID: URIO[random.Random, UUID] = UIO(UUID.randomUUID())
 

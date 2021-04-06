@@ -1,5 +1,6 @@
 package assignment
 
+import assignment.Config.DatabaseConfig
 import assignment.service._
 import cats.effect.Blocker
 import doobie._

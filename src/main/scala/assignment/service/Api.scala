@@ -1,5 +1,6 @@
 package assignment.service
 
+import assignment.RequestContext
 import assignment.model.DomainError._
 import assignment.model._
 import hotpotato._
@@ -12,7 +13,7 @@ trait Api {
       name:  Blog.Name,
       slug:  Blog.Slug,
       posts: List[(Option[Post.Title], Post.Content)],
-  ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])]
+  ): ZIO[RequestContext, Api.CreateBlogError, (Blog.Id, List[Post.Id])]
   def createPost(blogId: Blog.Id, title:      Option[Post.Title], content: Post.Content): IO[Api.CreatePostError, Post.Id]
   def queryBlogs(query:  Query, includePosts: Boolean): UIO[List[Blog]]
 }
@@ -33,7 +34,7 @@ object Api {
         name:  Blog.Name,
         slug:  Blog.Slug,
         posts: List[(Option[Post.Title], Post.Content)],
-    ): IO[CreateBlogError, (Blog.Id, List[Post.Id])] = {
+    ): ZIO[RequestContext, CreateBlogError, (Blog.Id, List[Post.Id])] = {
       implicit val errorEmbedder = Embedder.make[CreateBlogError]
       for {
         _ <- ZIO.when(name.value.isEmpty)(ZIO.fail(EmptyBlogName().embed))
@@ -111,7 +112,7 @@ object Api {
       name:  Blog.Name,
       slug:  Blog.Slug,
       posts: List[(Option[Post.Title], Post.Content)],
-  ): ZIO[Has[Api], CreateBlogError, (Blog.Id, List[Post.Id])] =
+  ): ZIO[Has[Api] with RequestContext, CreateBlogError, (Blog.Id, List[Post.Id])] =
     ZIO.accessM(_.get.createBlog(name, slug, posts))
 
   def createPost(

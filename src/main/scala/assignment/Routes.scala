@@ -1,12 +1,16 @@
 package assignment
 
+import assignment.Config.JwtSecret
 import assignment.dto._
 import assignment.model._
 import assignment.service._
 import cats.syntax.all._
 import io.circe.generic.semiauto.deriveCodec
+import io.circe.syntax._
 import org.http4s._
-import sttp.tapir.Schema
+import pdi.jwt.{JwtAlgorithm, JwtCirce}
+import sttp.tapir
+import sttp.tapir.{Codec, CodecFormat, Schema}
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
@@ -35,6 +39,24 @@ object Routes {
   implicit val postContentSchema: Schema[Post.Content] = Schema.string
   implicit val postViewCountSchema: Schema[Post.ViewCount] =
     Schema.schemaForLong.map(raw => Some(Post.ViewCount(raw)))(_.value)
+
+  def userCodec(jwtSecret: JwtSecret) = {
+    new Codec[List[String], User, CodecFormat.TextPlain] {
+      def schema: Typeclass[User]       = Schema.string
+      def format: CodecFormat.TextPlain = CodecFormat.TextPlain()
+      def rawDecode(parts: List[String]): tapir.DecodeResult[User] = {
+        val raw = parts.mkString("")
+
+        JwtCirce.decodeJson(raw, jwtSecret.value, List(JwtAlgorithm.HS256)).flatMap(_.as[User].toTry).toEither match {
+          case Left(error)  => tapir.DecodeResult.Error("Invalid jwt token", error)
+          case Right(value) => tapir.DecodeResult.Value(value)
+        }
+      }
+      def encode(user: User): List[String] = {
+        List(JwtCirce.encode(user.asJson, jwtSecret.value, JwtAlgorithm.HS256))
+      }
+    }
+  }
 
   val createBlog: ZEndpoint[CreateBlogRequest, ErrorResponse, CreateBlogResponse] =
     endpoint.post
@@ -69,15 +91,17 @@ object Routes {
     }
   }
 
-  def create(): HttpRoutes[RIO[Has[Api] with Clock, *]] = {
-    val createBlogRoute = createBlog.zServerLogic { request =>
-      Api
-        .createBlog(request.name, request.slug, request.posts.map(post => (post.title, post.content)))
-        .handleDomainErrors(errorHandler)
-        .map {
-          case (blogId, postIds) =>
-            CreateBlogResponse(blogId, postIds)
-        }
+  def create(jwtSecret: JwtSecret): HttpRoutes[RIO[Has[Api] with Clock, *]] = {
+    val createBlogRoute = createBlog.in(auth.bearer[User]()(userCodec(jwtSecret))).zServerLogic {
+      case (request, user) =>
+        Api
+          .createBlog(request.name, request.slug, request.posts.map(post => (post.title, post.content)))
+          .handleDomainErrors(errorHandler)
+          .provideSomeLayer[Has[Api]](ZLayer.succeed(user))
+          .map {
+            case (blogId, postIds) =>
+              CreateBlogResponse(blogId, postIds)
+          }
     }
     val createPostRoute = createPost.zServerLogic { request =>
       Api

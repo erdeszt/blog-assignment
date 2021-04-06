@@ -1,6 +1,6 @@
 package assignment.service
 
-import assignment.DatabaseConfig
+import assignment.Config.DatabaseConfig
 import org.flywaydb.core.Flyway
 import zio._
 
