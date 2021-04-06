@@ -59,6 +59,7 @@ object Api {
     ): IO[CreatePostError, Post.Id] = {
       implicit val errorEmbedder = Embedder.make[CreatePostError]
       for {
+        _ <- ZIO.when(body.value.isEmpty)(ZIO.fail(EmptyPostBody().embed))
         _ <- blogStore.getById(blogId).someOrFail(BlogNotFound(blogId).embed)
         id <- idProvider.generateId.map(Post.Id)
         _ <- trx.run(postStore.createPost(PostStore.Create(id, blogId, title, body)))

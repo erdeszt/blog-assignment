@@ -16,16 +16,17 @@ import zio.test.junit._
 class ApiSpec extends JUnitRunnableSpec {
 
   val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] =
-    ZLayer.fromEffect(Ref.make[List[UUID]](Nil).map(FakeIdProvider.Ref))
-  val testDatabaseConfig: ULayer[Has[DatabaseConfig]] = ZLayer.succeed(
-    DatabaseConfig(
-      DatabaseConfig.Host("localhost"),
-      DatabaseConfig.Port(3306),
-      DatabaseConfig.Database("assignment_test"),
-      DatabaseConfig.User("root"),
-      DatabaseConfig.Password("root")
+    Ref.make[List[UUID]](Nil).map(FakeIdProvider.Ref).toLayer
+  val testDatabaseConfig: ULayer[Has[DatabaseConfig]] =
+    ZLayer.succeed(
+      DatabaseConfig(
+        DatabaseConfig.Host("localhost"),
+        DatabaseConfig.Port(3306),
+        DatabaseConfig.Database("assignment_test"),
+        DatabaseConfig.User("root"),
+        DatabaseConfig.Password("root")
+      )
     )
-  )
   val transactionHandler = (testDatabaseConfig >>> Layers.transactor) >>> TransactionHandler.layer
   val blogStore          = transactionHandler >>> BlogStore.layer
   val postStore          = transactionHandler >>> PostStore.layer
@@ -62,12 +63,12 @@ class ApiSpec extends JUnitRunnableSpec {
             } yield assert(blogId.value)(equalTo(expectedBlogId)) &&
               assert(postIds.map(_.value))(equalTo(expectedPostIds))
           ),
-          testM("should fail for empty name")(
+          testM("should fail if the name is empty")(
             for {
               error <- Api.createBlog(Blog.Name(""), List.empty).toDomainError.either
             } yield assert(error)(isLeft(equalTo(EmptyBlogName())))
           ),
-          testM("should fail for empty post body")(
+          testM("should fail if the body is empty")(
             for {
               error <- Api
                 .createBlog(
@@ -101,6 +102,19 @@ class ApiSpec extends JUnitRunnableSpec {
 
               error <- Api.createPost(blogId, Some(Post.Title("post1")), Post.Body("post1 body")).toDomainError.either
             } yield assert(error)(isLeft(equalTo(BlogNotFound(blogId))))
+          ),
+          testM("should fail if the body is empty")(
+            for {
+              blogId <- randomUUID
+              expectedPostId <- randomUUID
+              _ <- FakeIdProvider.set(List(blogId, expectedPostId))
+
+              _ <- Api.createBlog(Blog.Name("blog1"), List.empty).toDomainError
+              error <- Api
+                .createPost(Blog.Id(blogId), Some(Post.Title("post1")), Post.Body(""))
+                .toDomainError
+                .either
+            } yield assert(error)(isLeft(equalTo(EmptyPostBody())))
           )
         ),
         suite("Query blogs")(
