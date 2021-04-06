@@ -131,15 +131,31 @@ class ApiSpec extends JUnitRunnableSpec {
           )
         ),
         suite("Query blogs")(
-          testM("should find a blog by id") {
+          testM("should find a blog by id")(
             for {
               blogId <- randomUUID
-              _ <- FakeIdProvider.set(blogId)
+              postIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
+              posts = postIds.map(id => (None, Post.Body(s"Post: ${id}")))
+              _ <- FakeIdProvider.set(blogId :: postIds)
 
-              _ <- Api.createBlog(Blog.Name("test blog"), List.empty).toDomainError
-              blogs <- Api.queryBlogs(Query.ByBlogId(Blog.Id(blogId)))
-            } yield assert(blogs.map(_.id.value))(equalTo(List(blogId)))
-          }
+              _ <- Api.createBlog(Blog.Name("test blog"), posts).toDomainError
+              blogs <- Api.queryBlogs(Query.ByBlogId(Blog.Id(blogId)), includePosts = false)
+            } yield assert(blogs)(hasSize(equalTo(1))) &&
+              assert(blogs.map(_.id.value))(hasSameElements(List(blogId))) &&
+              assert(blogs.head.posts)(isEmpty)
+          ),
+          testM("should return the posts if requested")(
+            for {
+              blogId <- randomUUID
+              postIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
+              posts = postIds.map(id => (None, Post.Body(s"Post: ${id}")))
+              _ <- FakeIdProvider.set(blogId :: postIds)
+
+              _ <- Api.createBlog(Blog.Name("test blog"), posts).toDomainError
+              blogs <- Api.queryBlogs(Query.ByBlogId(Blog.Id(blogId)), includePosts = true)
+            } yield assert(blogs)(hasSize(equalTo(1))) &&
+              assert(blogs.head.posts.map(_.id.value))(hasSameElements(postIds))
+          )
         )
       ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase.provideLayer(transactionHandler))
         @@ beforeAll(Migration.migrate.provideLayer(testDatabaseConfig >>> Migration.layer))

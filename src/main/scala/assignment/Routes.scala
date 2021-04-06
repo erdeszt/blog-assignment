@@ -50,21 +50,11 @@ object Routes {
       .out(jsonBody[QueryBlogsResponse])
       .errorOut(jsonBody[ErrorResponse])
 
-  implicit class ErrorHandlerExtension[-R, E <: Coproduct, +A](effect: ZIO[R, E, A])(
-      implicit unifier:                                                Unifier.Aux[E, DomainError]
-  ) {
-    def handleErrors: ZIO[R, ErrorResponse, A] = {
-      effect.toDomainError.mapError {
-        case error @ DomainError.EmptyBlogName() => ErrorResponse(1, error.getMessage)
-        case error @ DomainError.EmptyPostBody() => ErrorResponse(2, error.getMessage)
-      }
-    }
-  }
-
   def errorHandler(error: DomainError): ErrorResponse = {
     error match {
       case DomainError.EmptyBlogName() => ErrorResponse(1, error.getMessage)
       case DomainError.EmptyPostBody() => ErrorResponse(2, error.getMessage)
+      case DomainError.BlogNotFound(_) => ErrorResponse(3, error.getMessage)
     }
   }
 
@@ -86,7 +76,7 @@ object Routes {
     }
     // TODO: Request type
     val queryBlogsRoute = Routes.queryBlogs.zServerLogic { request =>
-      Api.queryBlogs(Query.ByBlogId(Blog.Id(UUID.randomUUID()))).map(QueryBlogsResponse(_))
+      Api.queryBlogs(Query.ByBlogId(Blog.Id(UUID.randomUUID())), includePosts = true).map(QueryBlogsResponse(_))
     }
 
     ZHttp4sServerInterpreter.from(List(createBlogRoute, createPostRoute, queryBlogsRoute)).toRoutes

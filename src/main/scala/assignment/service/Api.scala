@@ -18,8 +18,8 @@ trait Api {
       name:  Blog.Name,
       posts: List[(Option[Post.Title], Post.Body)]
   ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])]
-  def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): IO[Api.CreatePostError, Post.Id]
-  def queryBlogs(query:  Query): UIO[List[Blog]]
+  def createPost(blogId: Blog.Id, title:      Option[Post.Title], body: Post.Body): IO[Api.CreatePostError, Post.Id]
+  def queryBlogs(query:  Query, includePosts: Boolean): UIO[List[Blog]]
 }
 
 object Api {
@@ -66,12 +66,16 @@ object Api {
       } yield id
     }
 
-    override def queryBlogs(query: Query): UIO[List[Blog]] = {
+    override def queryBlogs(query: Query, includePosts: Boolean): UIO[List[Blog]] = {
       query match {
         case Query.ByBlogId(id) =>
           val blogWithPosts = for {
             blog <- OptionT(blogStore.getById(id))
-            posts <- OptionT.liftF(postStore.getPostsByBlogId(id))
+            posts <- if (includePosts) {
+              OptionT.liftF(postStore.getPostsByBlogId(id))
+            } else {
+              OptionT.pure[UIO](List.empty)
+            }
           } yield Blog(
             blog.id,
             blog.name,
@@ -102,8 +106,8 @@ object Api {
     ZIO.accessM(_.get.createPost(blogId, title, body))
   }
 
-  def queryBlogs(query: Query): URIO[Has[Api], List[Blog]] = {
-    ZIO.accessM(_.get.queryBlogs(query))
+  def queryBlogs(query: Query, includePosts: Boolean): URIO[Has[Api], List[Blog]] = {
+    ZIO.accessM(_.get.queryBlogs(query, includePosts))
   }
 
 }
