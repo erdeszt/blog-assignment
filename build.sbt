@@ -16,6 +16,7 @@ lazy val root = project
       "com.softwaremill.sttp.tapir" %% "tapir-core" % tapirVersion,
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe" % tapirVersion,
       "com.softwaremill.sttp.tapir" %% "tapir-zio-http4s-server" % tapirVersion,
+      "com.softwaremill.sttp.tapir" %% "tapir-sttp-client" % tapirVersion % Test,
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "com.github.jatcwang" %% "hotpotato-core" % "0.1.1",

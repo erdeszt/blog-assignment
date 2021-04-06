@@ -28,6 +28,7 @@ class ApiSpec extends JUnitRunnableSpec {
     ZLayer.succeed(
       DatabaseConfig(
         DatabaseConfig.Host("localhost"),
+        // TODO: Cleanup
         DatabaseConfig.Port(
           sys.env.get("DB_PORT").flatMap(rawPort => Try(rawPort.toInt).toOption).getOrElse(3306),
         ),
