@@ -23,4 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Run the tests
+        env:
+          DB_PORT: ${{ job.services.mysql.ports[3306] }}
         run: sbt test
