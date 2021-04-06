@@ -31,12 +31,10 @@ class ApiSpec extends JUnitRunnableSpec {
         DatabaseConfig.Password("root")
       )
     )
-  val transactionHandler = (testDatabaseConfig >>> Layers.transactor) >>> TransactionHandler.layer
-  val blogStore          = transactionHandler >>> BlogStore.layer
-  val postStore          = transactionHandler >>> PostStore.layer
+  val transactionHandler = testDatabaseConfig >>> Layers.transactionHandler
+  val stores             = transactionHandler >+> (BlogStore.layer ++ PostStore.layer)
   val idProvider         = idRefLayer >>> FakeIdProvider.layer
-  val dependencies =
-    idRefLayer ++ ((idProvider ++ blogStore ++ postStore ++ transactionHandler) >>> Api.layer)
+  val dependencies       = idRefLayer ++ ((idProvider ++ stores) >>> Api.layer)
 
   val randomUUID: URIO[random.Random, UUID] = UIO(UUID.randomUUID())
 

@@ -21,31 +21,8 @@ import zio.interop.catz._
 //object Main extends App {
 object Main extends CatsApp {
 
-  // TODO: Remove, setup env vars
-  val dbConfig = DatabaseConfig(
-    DatabaseConfig.Host("localhost"),
-    DatabaseConfig.Port(3306),
-    DatabaseConfig.Database("assignment"),
-    DatabaseConfig.User("root"),
-    DatabaseConfig.Password("root")
-  )
-
-  val apiLayer = ZLayer.succeed {
-    new Api {
-      def createBlog(
-          name:  Blog.Name,
-          posts: List[(Option[Post.Title], Post.Body)]
-      ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])] = ???
-
-      def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): IO[Api.CreatePostError, Post.Id] =
-        ???
-
-      def queryBlogs(query: Query): UIO[List[Blog]] = ???
-    }
-  }
-
-  val layers
-      : ZLayer[Any, Nothing, Has[Migration] with Has[Api]] = (ZLayer.succeed(dbConfig) >>> Migration.layer) ++ apiLayer
+  val layers: URLayer[ZEnv, Has[Migration] with Has[Api]] =
+    (DatabaseConfig.layer >>> Migration.layer) ++ Layers.api
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     val server: ZIO[zio.ZEnv with Has[Api] with Has[Migration], Nothing, Unit] = for {
@@ -53,7 +30,7 @@ object Main extends CatsApp {
       _ <- serve
     } yield ()
 
-    server.provideSomeLayer[ZEnv](layers).exitCode
+    server.provideCustomLayer(layers).exitCode
   }
 
   // TODO: Swagger docs
