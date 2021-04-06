@@ -10,7 +10,7 @@ create table post (
   id varchar(36) primary key,
   blog_id varchar(36),
   title varchar(255) null,
-  body text not null,
+  content text not null,
   view_count int not null default 0,
   created_at timestamp not null default now(),
 

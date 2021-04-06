@@ -17,10 +17,10 @@ trait PostStore {
 object PostStore extends UUIDDatabaseMapping {
 
   final case class Create(
-      id:     Post.Id,
-      blogId: Blog.Id,
-      title:  Option[Post.Title],
-      body:   Post.Body,
+      id:      Post.Id,
+      blogId:  Blog.Id,
+      title:   Option[Post.Title],
+      content: Post.Content,
   )
 
   final case class Live(trx: TransactionHandler) extends PostStore {
@@ -30,7 +30,7 @@ object PostStore extends UUIDDatabaseMapping {
     }
 
     override def createPosts(posts: List[Create]): Trx[Unit] = {
-      Update[Create]("insert into post (id, blog_id, title, body) value (?, ?, ?, ?)").updateMany(posts).void
+      Update[Create]("insert into post (id, blog_id, title, content) value (?, ?, ?, ?)").updateMany(posts).void
     }
 
     override def getPostsByBlogIds(blogIds: List[Blog.Id]): UIO[List[Post]] = {
@@ -38,7 +38,7 @@ object PostStore extends UUIDDatabaseMapping {
         case None => UIO(List.empty)
         case Some(ids) =>
           trx.run {
-            (fr"select id, blog_id, title, body, view_count from post where " ++ Fragments.in(fr"blog_id", ids))
+            (fr"select id, blog_id, title, content, view_count from post where " ++ Fragments.in(fr"blog_id", ids))
               .query[Post]
               .to[List]
           }

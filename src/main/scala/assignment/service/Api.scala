@@ -10,16 +10,16 @@ trait Api {
   def createBlog(
       name:  Blog.Name,
       slug:  Blog.Slug,
-      posts: List[(Option[Post.Title], Post.Body)],
+      posts: List[(Option[Post.Title], Post.Content)],
   ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])]
-  def createPost(blogId: Blog.Id, title:      Option[Post.Title], body: Post.Body): IO[Api.CreatePostError, Post.Id]
+  def createPost(blogId: Blog.Id, title:      Option[Post.Title], content: Post.Content): IO[Api.CreatePostError, Post.Id]
   def queryBlogs(query:  Query, includePosts: Boolean): UIO[List[Blog]]
 }
 
 object Api {
 
-  type CreateBlogError = OneOf5[EmptyBlogName, EmptyBlogSlug, InvalidBlogSlug, BlogSlugAlreadyExists, EmptyPostBody]
-  type CreatePostError = OneOf2[BlogNotFound, EmptyPostBody]
+  type CreateBlogError = OneOf5[EmptyBlogName, EmptyBlogSlug, InvalidBlogSlug, BlogSlugAlreadyExists, EmptyPostContent]
+  type CreatePostError = OneOf2[BlogNotFound, EmptyPostContent]
 
   private val blogSlugFormat = "^[a-zA-Z][a-zA-Z0-9\\-]*$".r
 
@@ -29,20 +29,20 @@ object Api {
     override def createBlog(
         name:  Blog.Name,
         slug:  Blog.Slug,
-        posts: List[(Option[Post.Title], Post.Body)],
+        posts: List[(Option[Post.Title], Post.Content)],
     ): IO[CreateBlogError, (Blog.Id, List[Post.Id])] = {
       implicit val errorEmbedder = Embedder.make[CreateBlogError]
       for {
         _ <- ZIO.when(name.value.isEmpty)(ZIO.fail(EmptyBlogName().embed))
         _ <- ZIO.when(slug.value.isEmpty)(ZIO.fail(EmptyBlogSlug().embed))
         _ <- ZIO.unless(blogSlugFormat.matches(slug.value))(ZIO.fail(InvalidBlogSlug(slug).embed))
-        _ <- ZIO.when(posts.exists { case (_, body) => body.value.isEmpty })(ZIO.fail(EmptyPostBody().embed))
+        _ <- ZIO.when(posts.exists { case (_, content) => content.value.isEmpty })(ZIO.fail(EmptyPostContent().embed))
         // TODO: Race condition
         _ <- ZIO.whenM(blogStore.getBySlug(slug).map(_.nonEmpty))(ZIO.fail(BlogSlugAlreadyExists(slug).embed))
         blogId <- idProvider.generateId.map(Blog.Id)
         blogPosts <- ZIO.foreach(posts) {
-          case (title, body) =>
-            idProvider.generateId.map(Post.Id).map(PostStore.Create(_, blogId, title, body))
+          case (title, content) =>
+            idProvider.generateId.map(Post.Id).map(PostStore.Create(_, blogId, title, content))
         }
         _ <- trx.run {
           for {
@@ -54,16 +54,16 @@ object Api {
     }
 
     override def createPost(
-        blogId: Blog.Id,
-        title:  Option[Post.Title],
-        body:   Post.Body,
+        blogId:  Blog.Id,
+        title:   Option[Post.Title],
+        content: Post.Content,
     ): IO[CreatePostError, Post.Id] = {
       implicit val errorEmbedder = Embedder.make[CreatePostError]
       for {
-        _ <- ZIO.when(body.value.isEmpty)(ZIO.fail(EmptyPostBody().embed))
+        _ <- ZIO.when(content.value.isEmpty)(ZIO.fail(EmptyPostContent().embed))
         _ <- blogStore.getById(blogId).someOrFail(BlogNotFound(blogId).embed)
         id <- idProvider.generateId.map(Post.Id)
-        _ <- trx.run(postStore.createPost(PostStore.Create(id, blogId, title, body)))
+        _ <- trx.run(postStore.createPost(PostStore.Create(id, blogId, title, content)))
       } yield id
     }
 
@@ -102,16 +102,16 @@ object Api {
   def createBlog(
       name:  Blog.Name,
       slug:  Blog.Slug,
-      posts: List[(Option[Post.Title], Post.Body)],
+      posts: List[(Option[Post.Title], Post.Content)],
   ): ZIO[Has[Api], CreateBlogError, (Blog.Id, List[Post.Id])] =
     ZIO.accessM(_.get.createBlog(name, slug, posts))
 
   def createPost(
-      blogId: Blog.Id,
-      title:  Option[Post.Title],
-      body:   Post.Body,
+      blogId:  Blog.Id,
+      title:   Option[Post.Title],
+      content: Post.Content,
   ): ZIO[Has[Api], Api.CreatePostError, Post.Id] = {
-    ZIO.accessM(_.get.createPost(blogId, title, body))
+    ZIO.accessM(_.get.createPost(blogId, title, content))
   }
 
   def queryBlogs(query: Query, includePosts: Boolean): URIO[Has[Api], List[Blog]] = {

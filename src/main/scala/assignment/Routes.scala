@@ -51,7 +51,7 @@ object Routes {
     error match {
       case DomainError.EmptyBlogName()          => ErrorResponse(1, error.getMessage)
       case DomainError.EmptyBlogSlug()          => ErrorResponse(2, error.getMessage)
-      case DomainError.EmptyPostBody()          => ErrorResponse(3, error.getMessage)
+      case DomainError.EmptyPostContent()       => ErrorResponse(3, error.getMessage)
       case DomainError.BlogNotFound(_)          => ErrorResponse(4, error.getMessage)
       case DomainError.BlogSlugAlreadyExists(_) => ErrorResponse(5, error.getMessage)
       case DomainError.InvalidBlogSlug(_)       => ErrorResponse(6, error.getMessage)
@@ -61,7 +61,7 @@ object Routes {
   def create(): HttpRoutes[RIO[Has[Api] with Clock, *]] = {
     val createBlogRoute = createBlog.zServerLogic { request =>
       Api
-        .createBlog(request.name, request.slug, request.posts.map(post => (post.title, post.body)))
+        .createBlog(request.name, request.slug, request.posts.map(post => (post.title, post.content)))
         .handleDomainErrors(errorHandler)
         .map {
           case (blogId, postIds) =>
@@ -70,7 +70,7 @@ object Routes {
     }
     val createPostRoute = createPost.zServerLogic { request =>
       Api
-        .createPost(request.blogId, request.create.title, request.create.body)
+        .createPost(request.blogId, request.create.title, request.create.content)
         .handleDomainErrors(errorHandler)
         .map(CreatePostResponse(_))
     }

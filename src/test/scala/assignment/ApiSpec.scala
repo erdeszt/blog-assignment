@@ -71,8 +71,8 @@ class ApiSpec extends JUnitRunnableSpec {
             for {
               expectedBlogId <- randomUUID
               expectedPostIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
-              posts = expectedPostIds.map[(Option[Post.Title], Post.Body)] { postId =>
-                (Some(Post.Title(s"Post #${postId}")), Post.Body("some content"))
+              posts = expectedPostIds.map[(Option[Post.Title], Post.Content)] { postId =>
+                (Some(Post.Title(s"Post #${postId}")), Post.Content("some content"))
               }
               _ <- FakeIdProvider.set(expectedBlogId :: expectedPostIds)
 
@@ -107,17 +107,17 @@ class ApiSpec extends JUnitRunnableSpec {
               error <- Api.createBlog(Blog.Name("notok"), slug, List.empty).toDomainError.either
             } yield assert(error)(isLeft(equalTo(BlogSlugAlreadyExists(slug))))
           },
-          testM("should fail if the body is empty") {
+          testM("should fail if the content is empty") {
             for {
               error <- Api
                 .createBlog(
                   Blog.Name("ok"),
                   Blog.Slug("ok"),
-                  List((None, Post.Body("ok")), (None, Post.Body(""))),
+                  List((None, Post.Content("ok")), (None, Post.Content(""))),
                 )
                 .toDomainError
                 .either
-            } yield assert(error)(isLeft(equalTo(EmptyPostBody())))
+            } yield assert(error)(isLeft(equalTo(EmptyPostContent())))
           },
         ),
         suite("Create post")(
@@ -129,7 +129,7 @@ class ApiSpec extends JUnitRunnableSpec {
 
               _ <- Api.createBlog(Blog.Name("blog1"), Blog.Slug("blog1"), List.empty).toDomainError
               postId <- Api
-                .createPost(Blog.Id(blogId), Some(Post.Title("post1")), Post.Body("post1 body"))
+                .createPost(Blog.Id(blogId), Some(Post.Title("post1")), Post.Content("post1 content"))
                 .toDomainError
             } yield assert(postId.value)(equalTo(expectedPostId))
           },
@@ -137,10 +137,13 @@ class ApiSpec extends JUnitRunnableSpec {
             for {
               blogId <- randomUUID.map(Blog.Id)
 
-              error <- Api.createPost(blogId, Some(Post.Title("post1")), Post.Body("post1 body")).toDomainError.either
+              error <- Api
+                .createPost(blogId, Some(Post.Title("post1")), Post.Content("post1 content"))
+                .toDomainError
+                .either
             } yield assert(error)(isLeft(equalTo(BlogNotFound(blogId))))
           },
-          testM("should fail if the body is empty") {
+          testM("should fail if the content is empty") {
             for {
               blogId <- randomUUID
               expectedPostId <- randomUUID
@@ -148,10 +151,10 @@ class ApiSpec extends JUnitRunnableSpec {
 
               _ <- Api.createBlog(Blog.Name("blog1"), Blog.Slug("blog1"), List.empty).toDomainError
               error <- Api
-                .createPost(Blog.Id(blogId), Some(Post.Title("post1")), Post.Body(""))
+                .createPost(Blog.Id(blogId), Some(Post.Title("post1")), Post.Content(""))
                 .toDomainError
                 .either
-            } yield assert(error)(isLeft(equalTo(EmptyPostBody())))
+            } yield assert(error)(isLeft(equalTo(EmptyPostContent())))
           },
         ),
         suite("Query blogs")(
@@ -159,7 +162,7 @@ class ApiSpec extends JUnitRunnableSpec {
             for {
               blogId <- randomUUID
               postIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
-              posts = postIds.map(id => (None, Post.Body(s"Post: ${id}")))
+              posts = postIds.map(id => (None, Post.Content(s"Post: ${id}")))
               _ <- FakeIdProvider.set(blogId :: postIds)
 
               _ <- Api.createBlog(Blog.Name("test blog"), Blog.Slug("test-blog"), posts).toDomainError
@@ -172,7 +175,7 @@ class ApiSpec extends JUnitRunnableSpec {
             for {
               blogId <- randomUUID
               postIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
-              posts = postIds.map(id => (None, Post.Body(s"Post: ${id}")))
+              posts = postIds.map(id => (None, Post.Content(s"Post: ${id}")))
               _ <- FakeIdProvider.set(blogId :: postIds)
 
               _ <- Api.createBlog(Blog.Name("test blog"), Blog.Slug("test-blog"), posts).toDomainError
