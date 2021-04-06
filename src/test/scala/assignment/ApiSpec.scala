@@ -22,8 +22,8 @@ class ApiSpec extends JUnitRunnableSpec {
 
   val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] =
     Ref.make[List[UUID]](Nil).map(FakeIdProvider.Ref).toLayer
-  val testDatabaseConfig: URLayer[ZEnv, Has[DatabaseConfig]] =
-    ZLayer.fromEffect(
+  val testDatabaseConfig: ULayer[Has[DatabaseConfig]] = {
+    ZEnv.live >>> ZLayer.fromEffect {
       for {
         // TODO: Fix CI
         rawPort <- system.env("DB_PORT").someOrElse("3306").orDie
@@ -35,11 +35,12 @@ class ApiSpec extends JUnitRunnableSpec {
         DatabaseConfig.Database("assignment_test"),
         DatabaseConfig.User("root"),
         DatabaseConfig.Password("root"),
-      ),
-    )
-  val stores       = (ZEnv.live >>> testDatabaseConfig) >>> Layers.stores
-  val idProvider   = idRefLayer >>> FakeIdProvider.layer
-  val dependencies = idRefLayer ++ ((idProvider ++ stores) >>> Api.layer)
+      )
+    }
+  }
+  val stores       = testDatabaseConfig >>> Layers.stores
+  val migration    = testDatabaseConfig >>> Migration.layer
+  val dependencies = (migration ++ (idRefLayer >+> FakeIdProvider.layer) ++ stores) >+> Api.layer
 
   val randomUUID: URIO[random.Random, UUID] = UIO(UUID.randomUUID())
 
@@ -182,8 +183,8 @@ class ApiSpec extends JUnitRunnableSpec {
               assert(blogs.head.posts.map(_.id.value))(hasSameElements(postIds))
           },
         ),
-      ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase.provideLayer(stores))
-        @@ beforeAll(Migration.migrate.provideLayer(testDatabaseConfig >>> Migration.layer))
+      ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase)
+        @@ beforeAll(Migration.migrate)
         @@ sequential
     ).provideSomeLayer[TestEnvironment](dependencies)
 
