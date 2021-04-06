@@ -1,11 +1,9 @@
 ## Blog assignment
 
 TODO:
-* Slug as input
 * Query rest binding
 * Docker
 * Scapegoat
-* Github workflow
 
 
 ### Build, run & test:

@@ -19,7 +19,7 @@ import zio.test.junit._
 import scala.util.Try
 
 // TODO: Option[NonEmptyString] for title?
-object ApiSpecObject extends ApiSpec
+object ApiSpecSbtRunner extends ApiSpec
 class ApiSpec extends JUnitRunnableSpec {
 
   val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] =
@@ -90,6 +90,12 @@ class ApiSpec extends JUnitRunnableSpec {
             for {
               error <- Api.createBlog(Blog.Name("ok"), Blog.Slug(""), List.empty).toDomainError.either
             } yield assert(error)(isLeft(equalTo(EmptyBlogSlug())))
+          },
+          testM("should fail if the slug is invalid") {
+            val slug = Blog.Slug("invalid+!")
+            for {
+              error <- Api.createBlog(Blog.Name("ok"), slug, List.empty).toDomainError.either
+            } yield assert(error)(isLeft(equalTo(InvalidBlogSlug(slug))))
           },
           testM("should fail if the slug is already in use") {
             val slug = Blog.Slug("bad")

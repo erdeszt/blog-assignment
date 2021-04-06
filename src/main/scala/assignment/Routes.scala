@@ -51,6 +51,7 @@ object Routes {
       case DomainError.EmptyPostBody()          => ErrorResponse(3, error.getMessage)
       case DomainError.BlogNotFound(_)          => ErrorResponse(4, error.getMessage)
       case DomainError.BlogSlugAlreadyExists(_) => ErrorResponse(5, error.getMessage)
+      case DomainError.InvalidBlogSlug(_)       => ErrorResponse(6, error.getMessage)
     }
   }
 
