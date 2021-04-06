@@ -13,10 +13,9 @@ lazy val root = project
       "org.tpolecat" %% "doobie-core" % "0.12.1",
       "mysql" % "mysql-connector-java" % "8.0.23",
       "org.flywaydb" % "flyway-core" % "7.7.2",
-      "org.xerial" % "sqlite-jdbc" % "3.34.0", // TODO:  % Test,
       "com.softwaremill.sttp.tapir" %% "tapir-core" % tapirVersion,
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe" % tapirVersion,
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % tapirVersion,
+      "com.softwaremill.sttp.tapir" %% "tapir-zio-http4s-server" % tapirVersion, // TODO: REvert to regular http4s server
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "dev.zio" %% "zio" % zioVersion,
@@ -25,5 +24,6 @@ lazy val root = project
       "dev.zio" %% "zio-test-sbt" % zioVersion % Test,
       "dev.zio" %% "zio-test-junit" % zioVersion % Test
     ),
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.3" cross CrossVersion.full)
   )

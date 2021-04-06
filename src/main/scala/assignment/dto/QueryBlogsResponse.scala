@@ -9,5 +9,7 @@ final case class QueryBlogsResponse(
 
 object QueryBlogsResponse {
 
-  implicit val jsonCodec = deriveCodec[QueryBlogsResponse]
+  implicit val postJsonCodec = deriveCodec[Post]
+  implicit val blogJsonCodec = deriveCodec[Blog]
+  implicit val jsonCodec     = deriveCodec[QueryBlogsResponse]
 }
