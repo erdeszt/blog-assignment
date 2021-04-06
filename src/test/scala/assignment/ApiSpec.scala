@@ -24,16 +24,16 @@ class ApiSpec extends JUnitRunnableSpec {
       DatabaseConfig.Password("root")
     )
   )
-  val transactionHandler
-      : ULayer[Has[TransactionHandler]] = (testDatabaseConfig >>> Layers.transactor) >>> TransactionHandler.layer
-  val blogStore:  ULayer[Has[BlogStore]]  = transactionHandler >>> BlogStore.layer
-  val postStore:  ULayer[Has[PostStore]]  = transactionHandler >>> PostStore.layer
-  val idProvider: ULayer[Has[IdProvider]] = idRefLayer >>> FakeIdProvider.layer
-  val dependencies: ULayer[Has[FakeIdProvider.Ref] with Has[Api]] =
+  val transactionHandler = (testDatabaseConfig >>> Layers.transactor) >>> TransactionHandler.layer
+  val blogStore          = transactionHandler >>> BlogStore.layer
+  val postStore          = transactionHandler >>> PostStore.layer
+  val idProvider         = idRefLayer >>> FakeIdProvider.layer
+  val dependencies =
     idRefLayer ++ ((idProvider ++ blogStore ++ postStore ++ transactionHandler) >>> Api.layer)
 
   val randomUUID: URIO[random.Random, UUID] = UIO(UUID.randomUUID())
 
+  // TODO: Clean the database
   val cleanDatabase = UIO(println("Clean database"))
 
   override def spec =
