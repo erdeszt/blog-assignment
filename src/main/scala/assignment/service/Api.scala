@@ -14,8 +14,12 @@ trait Api {
       slug:  Blog.Slug,
       posts: List[(Option[Post.Title], Post.Content)],
   ): ZIO[RequestContext, Api.CreateBlogError, (Blog.Id, List[Post.Id])]
-  def createPost(blogId: Blog.Id, title:      Option[Post.Title], content: Post.Content): IO[Api.CreatePostError, Post.Id]
-  def queryBlogs(query:  Query, includePosts: Boolean): UIO[List[Blog]]
+  def createPost(
+      blogId:  Blog.Id,
+      title:   Option[Post.Title],
+      content: Post.Content,
+  ): ZIO[RequestContext, Api.CreatePostError, Post.Id]
+  def queryBlogs(query: Query, includePosts: Boolean): UIO[List[Blog]]
 }
 
 object Api {
@@ -62,7 +66,7 @@ object Api {
         blogId:  Blog.Id,
         title:   Option[Post.Title],
         content: Post.Content,
-    ): IO[CreatePostError, Post.Id] = {
+    ): ZIO[RequestContext, CreatePostError, Post.Id] = {
       implicit val errorEmbedder = Embedder.make[CreatePostError]
       for {
         _ <- validatePost[CreatePostError](title, content)
@@ -119,7 +123,7 @@ object Api {
       blogId:  Blog.Id,
       title:   Option[Post.Title],
       content: Post.Content,
-  ): ZIO[Has[Api], Api.CreatePostError, Post.Id] = {
+  ): ZIO[Has[Api] with RequestContext, Api.CreatePostError, Post.Id] = {
     ZIO.accessM(_.get.createPost(blogId, title, content))
   }
 

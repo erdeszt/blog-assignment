@@ -10,7 +10,7 @@ import io.circe.syntax._
 import org.http4s._
 import pdi.jwt.{JwtAlgorithm, JwtCirce}
 import sttp.tapir
-import sttp.tapir.{Codec, CodecFormat, Schema}
+import sttp.tapir.{Codec, CodecFormat, Endpoint, Schema}
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
@@ -92,7 +92,14 @@ object Routes {
   }
 
   def create(jwtSecret: JwtSecret): HttpRoutes[RIO[Has[Api] with Clock, *]] = {
-    val createBlogRoute = createBlog.in(auth.bearer[User]()(userCodec(jwtSecret))).zServerLogic {
+    val createBlogAuthenticated: ZEndpoint[(CreateBlogRequest, User), ErrorResponse, CreateBlogResponse] =
+      createBlog.in(auth.bearer[User]()(userCodec(jwtSecret)))
+    val createPostAuthenticated: ZEndpoint[(CreatePostForBlogRequest, User), ErrorResponse, CreatePostResponse] =
+      createPost.in(auth.bearer[User]()(userCodec(jwtSecret)))
+    val queryBlogsAuthenticated: ZEndpoint[(QueryBlogsRequest, User), ErrorResponse, QueryBlogsResponse] =
+      queryBlogs.in(auth.bearer[User]()(userCodec(jwtSecret)))
+
+    val createBlogRoute = createBlogAuthenticated.zServerLogic {
       case (request, user) =>
         Api
           .createBlog(request.name, request.slug, request.posts.map(post => (post.title, post.content)))
@@ -103,31 +110,33 @@ object Routes {
               CreateBlogResponse(blogId, postIds)
           }
     }
-    val createPostRoute = createPost.zServerLogic { request =>
-      Api
-        .createPost(request.blogId, request.create.title, request.create.content)
-        .handleDomainErrors(errorHandler)
-        .map(CreatePostResponse(_))
+    val createPostRoute = createPostAuthenticated.zServerLogic {
+      case (request, user) =>
+        Api
+          .createPost(request.blogId, request.create.title, request.create.content)
+          .handleDomainErrors(errorHandler)
+          .provideSomeLayer[Has[Api]](ZLayer.succeed(user))
+          .map(CreatePostResponse(_))
     }
-    val queryBlogsRoute = queryBlogs.zServerLogic { request =>
-      Api.queryBlogs(request.query, request.includePosts).map(QueryBlogsResponse(_))
+    val queryBlogsRoute = queryBlogsAuthenticated.zServerLogic {
+      case (request, _) =>
+        Api.queryBlogs(request.query, request.includePosts).map(QueryBlogsResponse(_))
+    }
+    val yaml: String = {
+      import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
+      import sttp.tapir.openapi.circe.yaml._
+
+      OpenAPIDocsInterpreter
+        .toOpenAPI(
+          List(createBlogAuthenticated, createPostAuthenticated, queryBlogsAuthenticated),
+          "Blog API",
+          "1.0",
+        )
+        .toYaml
     }
 
     ZHttp4sServerInterpreter.from(List(createBlogRoute, createPostRoute, queryBlogsRoute)).toRoutes <+>
-      new SwaggerHttp4s(Routes.yaml).routes[RIO[Has[Api] with Clock, *]]
-  }
-
-  val yaml: String = {
-    import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
-    import sttp.tapir.openapi.circe.yaml._
-
-    OpenAPIDocsInterpreter
-      .toOpenAPI(
-        List(createBlog, createPost, queryBlogs),
-        "Blog API",
-        "1.0",
-      )
-      .toYaml
+      new SwaggerHttp4s(yaml).routes[RIO[Has[Api] with Clock, *]]
   }
 
 }
