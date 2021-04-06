@@ -1,18 +1,18 @@
 package assignment
 
-import assignment.model.DomainError.EmptyBlogName
+import assignment.model.DomainError._
 import assignment.model._
 import assignment.service._
 
 import java.util.UUID
 import zio._
-import zio.random.Random
 import zio.test._
 import zio.test.environment._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test.junit._
 
+// TODO: Option[NonEmptyString] for title?
 class ApiSpec extends JUnitRunnableSpec {
 
   val idRefLayer: ULayer[Has[FakeIdProvider.Ref]] =
@@ -66,6 +66,20 @@ class ApiSpec extends JUnitRunnableSpec {
             for {
               error <- Api.createBlog(Blog.Name(""), List.empty).toDomainError.either
             } yield assert(error)(isLeft(equalTo(EmptyBlogName())))
+          ),
+          testM("should fail for empty post body")(
+            for {
+              error <- Api
+                .createBlog(
+                  Blog.Name("ok"),
+                  List(
+                    (None, Post.Body("ok")),
+                    (None, Post.Body(""))
+                  )
+                )
+                .toDomainError
+                .either
+            } yield assert(error)(isLeft(equalTo(EmptyPostBody())))
           )
         ),
         suite("Create post")(
@@ -73,10 +87,20 @@ class ApiSpec extends JUnitRunnableSpec {
             for {
               blogId <- randomUUID
               expectedPostId <- randomUUID
-              _ <- FakeIdProvider.set(expectedPostId)
+              _ <- FakeIdProvider.set(List(blogId, expectedPostId))
 
-              postId <- Api.createPost(Blog.Id(blogId), Some(Post.Title("post1")), Post.Body("post1 body"))
+              _ <- Api.createBlog(Blog.Name("blog1"), List.empty).toDomainError
+              postId <- Api
+                .createPost(Blog.Id(blogId), Some(Post.Title("post1")), Post.Body("post1 body"))
+                .toDomainError
             } yield assert(postId.value)(equalTo(expectedPostId))
+          ),
+          testM("should fail if the blog doesn't exist")(
+            for {
+              blogId <- randomUUID.map(Blog.Id)
+
+              error <- Api.createPost(blogId, Some(Post.Title("post1")), Post.Body("post1 body")).toDomainError.either
+            } yield assert(error)(isLeft(equalTo(BlogNotFound(blogId))))
           )
         ),
         suite("Query blogs")(

@@ -37,7 +37,8 @@ object Main extends CatsApp {
           posts: List[(Option[Post.Title], Post.Body)]
       ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])] = ???
 
-      def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): UIO[Post.Id] = ???
+      def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): IO[Api.CreatePostError, Post.Id] =
+        ???
 
       def queryBlogs(query: Query): UIO[List[Blog]] = ???
     }

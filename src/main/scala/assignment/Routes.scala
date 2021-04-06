@@ -79,7 +79,10 @@ object Routes {
         }
     }
     val createPostRoute = Routes.createPost.zServerLogic { request =>
-      Api.createPost(request.blogId, request.create.title, request.create.body).map(CreatePostResponse(_))
+      Api
+        .createPost(request.blogId, request.create.title, request.create.body)
+        .handleDomainErrors(errorHandler)
+        .map(CreatePostResponse(_))
     }
     // TODO: Request type
     val queryBlogsRoute = Routes.queryBlogs.zServerLogic { request =>

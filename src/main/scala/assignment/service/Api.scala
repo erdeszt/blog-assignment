@@ -1,6 +1,6 @@
 package assignment.service
 
-import assignment.model.DomainError.{EmptyBlogName, EmptyPostBody}
+import assignment.model.DomainError._
 import assignment.model._
 import cats.data.OptionT
 import hotpotato._
@@ -18,13 +18,14 @@ trait Api {
       name:  Blog.Name,
       posts: List[(Option[Post.Title], Post.Body)]
   ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])]
-  def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): UIO[Post.Id]
+  def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): IO[Api.CreatePostError, Post.Id]
   def queryBlogs(query:  Query): UIO[List[Blog]]
 }
 
 object Api {
 
   type CreateBlogError = OneOf2[EmptyBlogName, EmptyPostBody]
+  type CreatePostError = OneOf2[BlogNotFound, EmptyPostBody]
 
   final case class Live(idProvider: IdProvider, blogStore: BlogStore, postStore: PostStore, trx: TransactionHandler)
       extends Api {
@@ -51,8 +52,14 @@ object Api {
       } yield (blogId, blogPosts.map(_.id))
     }
 
-    override def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): UIO[Post.Id] = {
+    override def createPost(
+        blogId: Blog.Id,
+        title:  Option[Post.Title],
+        body:   Post.Body
+    ): IO[CreatePostError, Post.Id] = {
+      implicit val errorEmbedder = Embedder.make[CreatePostError]
       for {
+        _ <- blogStore.getById(blogId).someOrFail(BlogNotFound(blogId).embed)
         id <- idProvider.generateId.map(Post.Id)
         _ <- trx.run(postStore.createPost(PostStore.Create(id, blogId, title, body)))
       } yield id
@@ -86,7 +93,11 @@ object Api {
   ): ZIO[Has[Api], CreateBlogError, (Blog.Id, List[Post.Id])] =
     ZIO.accessM(_.get.createBlog(name, posts))
 
-  def createPost(blogId: Blog.Id, title: Option[Post.Title], body: Post.Body): URIO[Has[Api], Post.Id] = {
+  def createPost(
+      blogId: Blog.Id,
+      title:  Option[Post.Title],
+      body:   Post.Body
+  ): ZIO[Has[Api], Api.CreatePostError, Post.Id] = {
     ZIO.accessM(_.get.createPost(blogId, title, body))
   }
 
