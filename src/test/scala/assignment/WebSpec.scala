@@ -21,7 +21,7 @@ class WebSpec extends JUnitRunnableSpec {
           val backend = HttpURLConnectionBackend()
           for {
             response: Response[DecodeResult[Either[Routes.ErrorResponse, QueryBlogsResponse]]] <- UIO(
-              request().send(backend),
+              request(()).send(backend),
             )
           } yield assert(response.body)(equalTo(DecodeResult.Value(Right(QueryBlogsResponse(List.empty)))))
         },

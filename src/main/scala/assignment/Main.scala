@@ -36,7 +36,9 @@ object Main extends CatsApp {
     ZIO.runtime[ZEnv with Has[Api]].flatMap { implicit runtime =>
       BlazeServerBuilder[RIO[Has[Api] with Clock, *]](runtime.platform.executor.asEC)
         .bindHttp(8080, "0.0.0.0")
-        .withHttpApp(Router("/" -> Routes.create()).orNotFound)
+        .withHttpApp(
+          Router("/" -> Routes.create()).orNotFound,
+        )
         .resource
         .use(_ => UIO.never)
         .orDie
