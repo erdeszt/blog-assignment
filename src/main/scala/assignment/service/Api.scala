@@ -91,10 +91,10 @@ object Api {
       }
     }
 
-    def validatePost[Error <: Coproduct](
+    def validatePost[E <: Coproduct](
         title:        Option[Post.Title],
         content:      Post.Content,
-    )(implicit basis: Basis[Error, PostValidationError]): IO[Error, Unit] = {
+    )(implicit basis: Basis[E, PostValidationError]): IO[E, Unit] = {
       implicit val embedder = Embedder.make[PostValidationError]
       for {
         _ <- ZIO.when(title.exists(_.value.isEmpty))(ZIO.fail(basis.inverse(Right(EmptyPostTitle().embed))))

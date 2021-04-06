@@ -6,6 +6,7 @@ import assignment.service._
 import cats.syntax.all._
 import io.circe.generic.semiauto.deriveCodec
 import org.http4s._
+import sttp.tapir.Schema
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
@@ -15,8 +16,6 @@ import zio._
 import zio.clock.Clock
 import zio.interop.catz._
 
-import java.util.UUID
-
 object Routes {
 
   final case class ErrorResponse(
@@ -25,6 +24,17 @@ object Routes {
   )
 
   implicit val errorEncoder = deriveCodec[ErrorResponse]
+
+  implicit val blogIdSchema: Schema[Blog.Id] =
+    Schema.schemaForUUID.map(raw => Some(Blog.Id(raw)))(_.value)
+  implicit val blogNameSchema: Schema[Blog.Name] = Schema.string
+  implicit val blogSlugSchema: Schema[Blog.Slug] = Schema.string
+  implicit val postIdSchema: Schema[Post.Id] =
+    Schema.schemaForUUID.map(raw => Some(Post.Id(raw)))(_.value)
+  implicit val postTitleSchema:   Schema[Post.Title]   = Schema.string
+  implicit val postContentSchema: Schema[Post.Content] = Schema.string
+  implicit val postViewCountSchema: Schema[Post.ViewCount] =
+    Schema.schemaForLong.map(raw => Some(Post.ViewCount(raw)))(_.value)
 
   val createBlog: ZEndpoint[CreateBlogRequest, ErrorResponse, CreateBlogResponse] =
     endpoint.post
