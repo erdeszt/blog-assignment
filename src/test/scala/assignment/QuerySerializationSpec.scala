@@ -13,7 +13,7 @@ object QuerySerializationSbtRunner extends QuerySerializationSpec
 class QuerySerializationSpec extends JUnitRunnableSpec {
 
   override def spec = suite("Query serialization")(
-    testM("should support all query types") {
+    test("should support all query types") {
       val blogId      = UUID.randomUUID()
       val blogSlug    = "slug"
       val blogName    = "name"
@@ -28,11 +28,9 @@ class QuerySerializationSpec extends JUnitRunnableSpec {
         (model.Query.ByPostContent(Post.Content(postContent)), s"""{"ByPostContent":{"content":"${postContent}"}}"""),
       )
 
-      UIO {
-        queriesAndJsons.foldLeft(assert(true)(equalTo(true))) {
-          case (assertions, (query, json)) =>
-            assertions && assert(query.asJson.noSpaces)(equalTo(json))
-        }
+      queriesAndJsons.foldLeft(assert(true)(equalTo(true))) {
+        case (assertions, (query, json)) =>
+          assertions && assert(query.asJson.noSpaces)(equalTo(json))
       }
     },
   )
