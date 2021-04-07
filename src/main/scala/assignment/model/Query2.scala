@@ -5,21 +5,31 @@ import cats.data.State
 import doobie._
 import doobie.syntax.string._
 
-// TODO: Better error handling
-// TODO: Type checking
 // TODO: `HAVING` for `post.view_count`
-// TODO: Explore idea: separate representations for transfer & rendering
-//  (could have `x = null` in the frontend translated to `is not null(x)` in the intermediate representation
 object Query2 {
 
   /*
 
-   Default JSON representation
+  Example queries:
 
-  { "Comparison": { "op": "eq", "field": "blog.id", "value": "blog1" }}
+  - blog.name LIKE '%string%'
+    {
+      "query": {
+        "BinOp": { "op": "like", "field": "blog.name", "value": "%string%" }
+      },
+      "includePosts": true
+    }
 
-  { "And": { "left": { "Comparison": { "op": "eq", "field": "blog.id", "value": "blog1" }} },
-           { "right": { "Comparison": { "op": "gt", "field": "post.view_count", "value": 0 }} } }
+  - blog.name LIKE '%string' AND post.title is not null
+    {
+      "query": {
+        "And" {
+          "left": "BinOp": { "op": "like", "field": "blog.name", "value": "%string%" },
+          "right": "UnOp": { "op": "isnotnull", "field": "post.title" },
+        }
+      },
+      "includePosts": true
+    }
 
    */
 

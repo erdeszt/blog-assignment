@@ -32,8 +32,8 @@ object QueryBlogsRequest2 {
 
   implicit val unOpCodec: Codec[Query2.UnOpType] = mappingCodec[Query2.UnOpType](
     Map[String, Query2.UnOpType](
-      "is null"     -> Query2.IsNull(),
-      "is not null" -> Query2.IsNotNull(),
+      "isnull"    -> Query2.IsNull(),
+      "isnotnull" -> Query2.IsNotNull(),
     ),
     "unop",
   )
