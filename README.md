@@ -24,7 +24,7 @@
 
 The best place to start reading the code is with the [Api](https://github.com/erdeszt/blog-assignment/blob/doc-links/src/main/scala/assignment/service/Api.scala#L10) interface.
 It describes the available API calls with inputs, outputs and possible errors.
-The file also contains the implementation of the business logic of the app. The relevant models are location the the [assignment.model](https://github.com/erdeszt/blog-assignment/tree/doc-links/src/main/scala/assignment/model) package.
+The file also contains the implementation of the business logic of the app. The relevant models are located in the [assignment.model](https://github.com/erdeszt/blog-assignment/tree/doc-links/src/main/scala/assignment/model) package.
 
 The tests in [ApiSpec](https://github.com/erdeszt/blog-assignment/blob/doc-links/src/test/scala/assignment/ApiSpec.scala#L60) describe the usage and behaviour of the api.
 
@@ -53,8 +53,9 @@ The database schema is defined in [src/main/resources/db/migration](https://gith
     * I wanted to setup linting but I've chosen a very recent sbt version and there's no compatible releases yet
     * I also wanted to add request and service level logs but didn't have time
     * There should be a docker-compose setup for the development and test mysql databases but I'm on Windows right now so I didn't bother doing it.
+    * The tests could run in parallel with a bit of work which would be nice.
 * What would you need to do to make this application scale to hundreds of thousands of users?
-    * The app scales horizontally at the current setup so for a while adding more servers is the easiest way to scale.
+    * The app scales horizontally with the current setup so for a while adding more servers is the easiest way to scale.
     At some point the database will become the bottleneck which can be improved by asynchronous writes, read replicas, caching or moving to nosql storage, dedicated search api/storage
 * How would you change the architecture to allow that models are stored in different databases? E.g. posts are stored in Cassandra and blogs are stored in Postgres.
     * That's already possible with the current architecture.
