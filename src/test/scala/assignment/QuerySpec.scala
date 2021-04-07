@@ -1,7 +1,7 @@
 package assignment
 
 import assignment.model.Query2.Compiler._
-import assignment.model.Query2.TypeChecker.NullComparisonWithNonNullableField
+import assignment.model.Query2.TypeChecker.{InvalidOperatorForType, NullComparisonWithNonNullableField, TypeMismatch}
 import assignment.model.Query2._
 import doobie.syntax.string._
 import zio._
@@ -119,6 +119,27 @@ class QuerySpec extends JUnitRunnableSpec {
         for {
           error <- Task(TypeChecker.check(query)).either
         } yield assert(error)(isLeft(equalTo(NullComparisonWithNonNullableField(blogIdSelector))))
+      },
+      testM("should match the types of the two sides of binary operators") {
+        val value = Value.Number(1)
+        val query = BinOp(Eq(), blogIdSelector, value)
+        for {
+          error <- Task(TypeChecker.check(query)).either
+        } yield assert(error)(isLeft(equalTo(TypeMismatch(blogIdSelector, value))))
+      },
+      testM("should not allow numerical arguments to string operators") {
+        val value = Value.Number(1)
+        val query = BinOp(Like(), viewCountSelector, value)
+        for {
+          error <- Task(TypeChecker.check(query)).either
+        } yield assert(error)(isLeft(equalTo(InvalidOperatorForType(Like(), viewCountSelector))))
+      },
+      testM("should not allow string arguments to numeric operators") {
+        val value = Value.Text("test")
+        val query = BinOp(Lt(), blogIdSelector, value)
+        for {
+          error <- Task(TypeChecker.check(query)).either
+        } yield assert(error)(isLeft(equalTo(InvalidOperatorForType(Lt(), blogIdSelector))))
       },
     ),
   )

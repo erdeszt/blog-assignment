@@ -1,13 +1,14 @@
 package assignment.model
 
+import assignment.model
 import doobie._
 import doobie.syntax.string._
 
 // TODO: Better error handling
 // TODO: Type checking
 // TODO: `HAVING` for `post.view_count`
-// TODO: Explore idea: introduce an intermediate representation ("minisql") and compile the query
-//       to it before rendering to eliminate the null comparison issue
+// TODO: Explore idea: separate representations for transfer & rendering
+//  (could have `x = null` in the frontend translated to `is not null(x)` in the intermediate representation
 object Query2 {
 
   /*
@@ -40,41 +41,63 @@ object Query2 {
   final case class IsNull() extends UnOpType
   final case class IsNotNull() extends UnOpType
 
-  sealed abstract class FieldSelector(val nullable: Boolean) {
-    type ValueType <: Value
-  }
+  sealed abstract class FieldSelector(val ty: Ty, val nullable: Boolean)
   object FieldSelector {
     object Blog {
-      final case class Id() extends FieldSelector(nullable   = false) { type ValueType = Value.Text }
-      final case class Name() extends FieldSelector(nullable = false) { type ValueType = Value.Text }
-      final case class Slug() extends FieldSelector(nullable = false) { type ValueType = Value.Text }
+      final case class Id() extends FieldSelector(TString(), nullable   = false)
+      final case class Name() extends FieldSelector(TString(), nullable = false)
+      final case class Slug() extends FieldSelector(TString(), nullable = false)
     }
     object Post {
-      final case class Id() extends FieldSelector(nullable        = false) { type ValueType = Value.Text }
-      final case class Title() extends FieldSelector(nullable     = true) { type ValueType  = Value.Text }
-      final case class Content() extends FieldSelector(nullable   = false) { type ValueType = Value.Text }
-      final case class ViewCount() extends FieldSelector(nullable = false) { type ValueType = Value.Number }
+      final case class Id() extends FieldSelector(TString(), nullable      = false)
+      final case class Title() extends FieldSelector(TString(), nullable   = true)
+      final case class Content() extends FieldSelector(TString(), nullable = false)
+      final case class ViewCount() extends FieldSelector(TInt(), nullable  = false)
     }
   }
 
-  sealed trait Value
+  sealed trait Ty
+  final case class TInt() extends Ty
+  final case class TString() extends Ty
+
+  sealed abstract class Value(val ty: Ty)
   object Value {
-    final case class Number(value: Long) extends Value
-    final case class Text(value:   String) extends Value
+    final case class Number(value: Long) extends Value(TInt())
+    final case class Text(value:   String) extends Value(TString())
   }
 
   object TypeChecker {
 
     sealed abstract class TypeCheckerError(message:                    String) extends Exception(message)
     final case class NullComparisonWithNonNullableField(fieldSelector: FieldSelector)
-        extends TypeCheckerError(s"Comparing non nullable field ${fieldSelector} with NULL")
+        extends TypeCheckerError(s"Comparing non nullable field: ${fieldSelector} with NULL")
+    final case class TypeMismatch(selector: FieldSelector, value: Value)
+        extends TypeCheckerError(s"Type mismatch between field: ${selector} and value: ${value}")
+    final case class InvalidOperatorForType(op: BinOpType, field: FieldSelector)
+        extends TypeCheckerError(s"Invalid operand type for operator: ${op}, field: ${field}")
 
     def check(condition: Condition): Unit = {
       condition match {
+        // Check nullability of fields
         case UnOp(IsNull(), selector) if !selector.nullable =>
           throw NullComparisonWithNonNullableField(selector)
         case UnOp(IsNotNull(), selector) if !selector.nullable =>
           throw NullComparisonWithNonNullableField(selector)
+        case UnOp(IsNull(), _) | UnOp(IsNotNull(), _) => ()
+        // Check operator types and check that the operator is valid for the field type
+        case BinOp(op, field, value) =>
+          if (field.ty != value.ty) {
+            throw TypeMismatch(field, value)
+          }
+
+          // Eq and NotEq are generic
+          (op, field.ty) match {
+            case (Lt(), TString()) | (Gt(), TString()) | (Lte(), TString()) | (Gte(), TString()) =>
+              throw InvalidOperatorForType(op, field)
+            case (Like(), TInt()) =>
+              throw InvalidOperatorForType(op, field)
+            case _ => ()
+          }
         case And(left, right) => {
           check(left)
           check(right)
@@ -89,6 +112,29 @@ object Query2 {
   }
 
   object Compiler {
+
+    val joinedFields = Set[FieldSelector](
+      FieldSelector.Post.Id(),
+      FieldSelector.Post.Title(),
+      FieldSelector.Post.Content(),
+      FieldSelector.Post.ViewCount(),
+    )
+
+    def getFields(condition: Condition): Set[FieldSelector] = {
+      def go(fields: Set[FieldSelector]): Condition => Set[FieldSelector] = {
+        case BinOp(_, field, _) => fields + field
+        case UnOp(_, field)     => fields + field
+        case And(left, right)   => go(fields)(left).union(go(fields)(right))
+        case Or(left, right)    => go(fields)(left).union(go(fields)(right))
+      }
+      go(Set.empty)(condition)
+    }
+
+    def needsJoinedFields(condition: Condition): Boolean = {
+      val fields = getFields(condition)
+
+      (joinedFields.intersect(fields)).nonEmpty
+    }
 
     def compile(condition: Condition): Fragment = {
       condition match {
@@ -141,6 +187,17 @@ object Query2 {
         case Value.Number(number) => fr"${number}"
         case Value.Text(text)     => fr"${text}"
       }
+    }
+  }
+
+  def fromQuery(query: model.Query): Condition = {
+    query match {
+      case model.Query.ByBlogId(id)           => BinOp(Eq(), FieldSelector.Blog.Id(), Value.Text(id.value.toString))
+      case model.Query.ByBlogName(name)       => BinOp(Like(), FieldSelector.Blog.Name(), Value.Text(name.value))
+      case model.Query.ByBlogSlug(slug)       => BinOp(Eq(), FieldSelector.Blog.Slug(), Value.Text(slug.value))
+      case model.Query.HasPosts()             => throw new Exception("Not supported")
+      case model.Query.ByPostTitle(title)     => BinOp(Like(), FieldSelector.Post.Title(), Value.Text(title.value))
+      case model.Query.ByPostContent(content) => BinOp(Like(), FieldSelector.Post.Content(), Value.Text(content.value))
     }
   }
 

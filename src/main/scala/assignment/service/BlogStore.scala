@@ -2,6 +2,7 @@ package assignment.service
 
 import assignment.model._
 import cats.syntax.functor._
+import doobie.{Fragment, Fragments}
 import doobie.syntax.string._
 import zio._
 
@@ -30,21 +31,20 @@ object BlogStore extends UUIDDatabaseMapping {
     }
 
     override def queryBlogs(query: Query): UIO[List[BlogRead]] = {
-      val selector = fr"select blog.id, blog.name, blog.slug from blog "
-      val fullQuery = query match {
-        case Query.ByBlogId(id) =>
-          selector ++ fr"where blog.id = ${id}"
-        case Query.ByBlogSlug(slug) =>
-          selector ++ fr"where blog.slug = ${slug}"
-        case Query.ByBlogName(name) =>
-          selector ++ fr"where blog.name like ${name}"
-        case Query.HasPosts() =>
-          selector ++ fr"left join post on blog.id = post.blog_id having count(post.id) > 0"
-        case Query.ByPostTitle(title) =>
-          selector ++ fr"join post on blog.id = post.blog_id and post.title like ${title}"
-        case Query.ByPostContent(content) =>
-          selector ++ fr"join post on blog.id = post.blog_id and post.content like ${content}"
+      val query2            = Query2.fromQuery(query)
+      val selector          = fr"select blog.id, blog.name, blog.slug"
+      val _                 = Query2.TypeChecker.check(query2)
+      val condition         = Query2.Compiler.compile(query2)
+      val needsJoinedFields = Query2.Compiler.needsJoinedFields(query2)
+      val extraFields       = fr"post.id, post.title, post.content, post.view_count"
+      val fullSelector = if (needsJoinedFields) {
+        selector ++ Fragment.const(",") ++ extraFields ++ fr"from blog"
+      } else {
+        selector ++ fr"from blog"
       }
+      val joinedFields = fr"left join post on blog.id = post.blog_id"
+
+      val fullQuery = fullSelector ++ (if (needsJoinedFields) joinedFields else Fragment.empty) ++ fr"where" ++ condition
 
       trx.run(fullQuery.query[BlogRead].to[List])
     }
