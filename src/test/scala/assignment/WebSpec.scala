@@ -13,6 +13,10 @@ import zio.test.junit.JUnitRunnableSpec
 
 import java.util.UUID
 
+/**
+  * The test can be run manually by starting up the server then removing the `@@ ignore` from the end of the suite and running `sbt test`
+  * Given more time it could start up the server either directly on the host or in a docker container and run against it, tearing it down afterwards.
+  */
 object WebSpecSbtRunner extends WebSpec
 class WebSpec extends JUnitRunnableSpec {
 
@@ -23,7 +27,7 @@ class WebSpec extends JUnitRunnableSpec {
           val request = SttpClientInterpreter.toRequest(Routes.queryBlogs, Some(uri"http://localhost:8080"))
           val backend = HttpURLConnectionBackend()
           for {
-            response: Response[DecodeResult[Either[Routes.ErrorResponse, QueryBlogsResponse]]] <- UIO(
+            response <- UIO(
               request(QueryBlogsRequest(model.Query.ByBlogId(Blog.Id(UUID.randomUUID())), includePosts = false))
                 .send(backend),
             )

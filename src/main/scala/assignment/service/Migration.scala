@@ -39,16 +39,18 @@ object Migration {
     }
 
     private def createDatabase: UIO[Unit] = {
-      val createStatement = s"create database if not exists ${config.database.value}"
-      ZManaged
-        .fromAutoCloseable(
-          UIO(DriverManager.getConnection(connectionString(config), config.user.value, config.password.value)),
-        )
-        .use { connection =>
-          ZManaged
-            .fromAutoCloseable(UIO(connection.createStatement()))
-            .use(statement => UIO(statement.execute(createStatement)).unit)
-        }
+      val managedStatement = for {
+        connection <- ZManaged
+          .fromAutoCloseable(
+            UIO(DriverManager.getConnection(connectionString(config), config.user.value, config.password.value)),
+          )
+        statement <- ZManaged
+          .fromAutoCloseable(UIO(connection.createStatement()))
+      } yield statement
+
+      managedStatement.use { statement =>
+        UIO(statement.execute(s"create database if not exists ${config.database.value}")).unit
+      }
     }
   }
 

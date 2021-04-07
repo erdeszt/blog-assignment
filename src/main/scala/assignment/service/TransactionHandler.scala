@@ -5,6 +5,10 @@ import doobie.syntax.connectionio._
 import zio._
 import zio.interop.catz._
 
+/**
+  * Interface for executing transactions. Enables the separation of stores by domain model while allowing
+  * multiple different writes to be combined into one transaction at the business logic level.
+  */
 trait TransactionHandler {
   def run[T](transaction: Trx[T]): UIO[T]
 }

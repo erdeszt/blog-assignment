@@ -4,6 +4,9 @@ import zio._
 
 import java.util.UUID
 
+/**
+  * Interface for generating unique identifiers to enable controlling the ids during tests
+  */
 trait IdProvider {
   def generateId: UIO[UUID]
 }
