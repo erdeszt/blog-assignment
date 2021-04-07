@@ -13,8 +13,9 @@ trait Api {
       slug:  Blog.Slug,
       posts: List[(Option[Post.Title], Post.Content)],
   ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])]
-  def createPost(blogId: Blog.Id, title:      Option[Post.Title], content: Post.Content): IO[Api.CreatePostError, Post.Id]
-  def queryBlogs(query:  Query, includePosts: Boolean): UIO[List[Blog]]
+  def createPost(blogId: Blog.Id, title:                 Option[Post.Title], content: Post.Content): IO[Api.CreatePostError, Post.Id]
+  def queryBlogs(query:  Query, includePosts:            Boolean): UIO[List[Blog]]
+  def queryBlogs2(query: Query2.Condition, includePosts: Boolean): UIO[List[Blog]]
 }
 
 object Api {
@@ -40,9 +41,7 @@ object Api {
         _ <- ZIO.when(slug.value.isEmpty)(ZIO.fail(EmptyBlogSlug().embed))
         _ <- ZIO.unless(blogSlugFormat.matches(slug.value))(ZIO.fail(InvalidBlogSlug(slug).embed))
         _ <- ZIO.foreach_(posts) { case (title, content) => validatePost[CreateBlogError](title, content) }
-        _ <- ZIO.whenM(blogStore.queryBlogs(Query.ByBlogSlug(slug)).map(_.nonEmpty))(
-          ZIO.fail(BlogSlugAlreadyExists(slug).embed),
-        )
+        _ <- ZIO.whenM(blogStore.getBySlug(slug).map(_.nonEmpty))(ZIO.fail(BlogSlugAlreadyExists(slug).embed))
         blogId <- idProvider.generateId.map(Blog.Id)
         blogPosts <- ZIO.foreach(posts) {
           case (title, content) =>
@@ -71,8 +70,18 @@ object Api {
       } yield id
     }
 
+// TODO: Move compiler errors to domain errors
     override def queryBlogs(query: Query, includePosts: Boolean): UIO[List[Blog]] = {
       for {
+        query2 <- ZIO.fromEither(Query2.fromQuery(query)).orDie
+        blogs <- queryBlogs2(query2, includePosts)
+      } yield blogs
+    }
+
+    // TODO: Move compiler errors to domain errors
+    def queryBlogs2(query: Query2.Condition, includePosts: Boolean): UIO[List[Blog]] = {
+      for {
+        _ <- ZIO.fromEither(Query2.TypeChecker.check(query)).orDie
         blogs <- blogStore.queryBlogs(query)
         posts <- if (includePosts) {
           postStore
@@ -124,6 +133,10 @@ object Api {
 
   def queryBlogs(query: Query, includePosts: Boolean): URIO[Has[Api], List[Blog]] = {
     ZIO.accessM(_.get.queryBlogs(query, includePosts))
+  }
+
+  def queryBlogs2(query: Query2.Condition, includePosts: Boolean): URIO[Has[Api], List[Blog]] = {
+    ZIO.accessM(_.get.queryBlogs2(query, includePosts))
   }
 
 }

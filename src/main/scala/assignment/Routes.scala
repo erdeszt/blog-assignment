@@ -57,6 +57,13 @@ object Routes {
       .out(jsonBody[QueryBlogsResponse])
       .errorOut(jsonBody[ErrorResponse])
 
+  val queryBlogs2: ZEndpoint[QueryBlogsRequest2, ErrorResponse, QueryBlogsResponse] =
+    endpoint.post
+      .in("blog" / "query2")
+      .in(jsonBody[QueryBlogsRequest2])
+      .out(jsonBody[QueryBlogsResponse])
+      .errorOut(jsonBody[ErrorResponse])
+
   def errorHandler(error: DomainError): ErrorResponse = {
     error match {
       case DomainError.EmptyBlogName()          => ErrorResponse(1, error.getMessage)
@@ -88,8 +95,13 @@ object Routes {
     val queryBlogsRoute = queryBlogs.zServerLogic { request =>
       Api.queryBlogs(request.query, request.includePosts).map(QueryBlogsResponse(_))
     }
+    val queryBlogsRoute2 = queryBlogs2.zServerLogic { request =>
+      Api.queryBlogs2(request.query, request.includePosts).map(QueryBlogsResponse(_))
+    }
 
-    ZHttp4sServerInterpreter.from(List(createBlogRoute, createPostRoute, queryBlogsRoute)).toRoutes <+>
+    ZHttp4sServerInterpreter
+      .from(List(createBlogRoute, createPostRoute, queryBlogsRoute, queryBlogsRoute2))
+      .toRoutes <+>
       new SwaggerHttp4s(Routes.yaml).routes[RIO[Has[Api] with Clock, *]]
   }
 
@@ -99,7 +111,7 @@ object Routes {
 
     OpenAPIDocsInterpreter
       .toOpenAPI(
-        List(createBlog, createPost, queryBlogs),
+        List(createBlog, createPost, queryBlogs, queryBlogs2),
         "Blog API",
         "1.0",
       )

@@ -206,14 +206,17 @@ object Query2 {
     }
   }
 
-  def fromQuery(query: model.Query): Condition = {
+  final case class IncompatibleQueryError() extends Exception("HasPosts query is not supported by Query2")
+
+  def fromQuery(query: model.Query): Either[IncompatibleQueryError, Condition] = {
     query match {
-      case model.Query.ByBlogId(id)           => BinOp(Eq(), FieldSelector.Blog.Id(), Value.Text(id.value.toString))
-      case model.Query.ByBlogName(name)       => BinOp(Like(), FieldSelector.Blog.Name(), Value.Text(name.value))
-      case model.Query.ByBlogSlug(slug)       => BinOp(Eq(), FieldSelector.Blog.Slug(), Value.Text(slug.value))
-      case model.Query.HasPosts()             => throw new Exception("Not supported")
-      case model.Query.ByPostTitle(title)     => BinOp(Like(), FieldSelector.Post.Title(), Value.Text(title.value))
-      case model.Query.ByPostContent(content) => BinOp(Like(), FieldSelector.Post.Content(), Value.Text(content.value))
+      case model.Query.ByBlogId(id)       => Right(BinOp(Eq(), FieldSelector.Blog.Id(), Value.Text(id.value.toString)))
+      case model.Query.ByBlogName(name)   => Right(BinOp(Like(), FieldSelector.Blog.Name(), Value.Text(name.value)))
+      case model.Query.ByBlogSlug(slug)   => Right(BinOp(Eq(), FieldSelector.Blog.Slug(), Value.Text(slug.value)))
+      case model.Query.HasPosts()         => Left(new IncompatibleQueryError())
+      case model.Query.ByPostTitle(title) => Right(BinOp(Like(), FieldSelector.Post.Title(), Value.Text(title.value)))
+      case model.Query.ByPostContent(content) =>
+        Right(BinOp(Like(), FieldSelector.Post.Content(), Value.Text(content.value)))
     }
   }
 
