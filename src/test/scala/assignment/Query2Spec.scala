@@ -5,7 +5,6 @@ import assignment.model.Query2.Compiler._
 import assignment.model.Query2.TypeChecker._
 import doobie.Fragment
 import doobie.syntax.string._
-import zio._
 import zio.test._
 import zio.test.Assertion._
 import zio.test.junit.JUnitRunnableSpec
