@@ -1,6 +1,7 @@
 package assignment.model
 
 import assignment.model
+import cats.data.State
 import doobie._
 import doobie.syntax.string._
 
@@ -113,6 +114,8 @@ object Query2 {
 
   object Compiler {
 
+    final case class CompilerState(needsJoinedFields: Boolean)
+
     val joinedFields = Set[FieldSelector](
       FieldSelector.Post.Id(),
       FieldSelector.Post.Title(),
@@ -130,19 +133,44 @@ object Query2 {
       go(Set.empty)(condition)
     }
 
-    def needsJoinedFields(condition: Condition): Boolean = {
-      val fields = getFields(condition)
-
-      (joinedFields.intersect(fields)).nonEmpty
-    }
-
     def compile(condition: Condition): Fragment = {
-      condition match {
-        case BinOp(op, field, value) => compileBinOp(op, field, value)
-        case UnOp(op, field)         => compileUnOp(op, field)
-        case And(left, right)        => Fragments.and(compile(left), compile(right))
-        case Or(left, right)         => Fragments.or(compile(left), compile(right))
+      def compileCondition: Condition => State[CompilerState, Fragment] = {
+        case BinOp(op, field, value) =>
+          for {
+            _ <- if (joinedFields.contains(field)) {
+              State.modify[CompilerState](_.copy(needsJoinedFields = true))
+            } else {
+              State.pure[CompilerState, Unit](())
+            }
+          } yield compileBinOp(op, field, value)
+        case UnOp(op, field) =>
+          for {
+            _ <- if (joinedFields.contains(field)) {
+              State.modify[CompilerState](_.copy(needsJoinedFields = true))
+            } else {
+              State.pure[CompilerState, Unit](())
+            }
+          } yield compileUnOp(op, field)
+        case And(left, right) =>
+          for {
+            leftFragment <- compileCondition(left)
+            rightFragment <- compileCondition(right)
+          } yield Fragments.and(leftFragment, rightFragment)
+        case Or(left, right) =>
+          for {
+            leftFragment <- compileCondition(left)
+            rightFragment <- compileCondition(right)
+          } yield Fragments.or(leftFragment, rightFragment)
       }
+      val (state, conditionFragment) = compileCondition(condition).run(CompilerState(needsJoinedFields = false)).value
+      val fieldSelectors             = fr"select blog.id, blog.name, blog.slug from blog"
+      val joinedPosts = if (state.needsJoinedFields) {
+        fr"left join post on blog.id = post.blog_id"
+      } else {
+        Fragment.empty
+      }
+
+      fieldSelectors ++ joinedPosts ++ Fragment.const("where") ++ conditionFragment
     }
 
     def compileBinOp(op: BinOpType, field: FieldSelector, value: Value): Fragment = {
