@@ -77,36 +77,31 @@ object Query2 {
     final case class InvalidOperatorForType(op: BinOpType, field: FieldSelector)
         extends TypeCheckerError(s"Invalid operand type for operator: ${op}, field: ${field}")
 
-    def check(condition: Condition): Unit = {
+    def check(condition: Condition): Either[TypeCheckerError, Unit] = {
       condition match {
         // Check nullability of fields
         case UnOp(IsNull(), selector) if !selector.nullable =>
-          throw NullComparisonWithNonNullableField(selector)
+          Left(NullComparisonWithNonNullableField(selector))
         case UnOp(IsNotNull(), selector) if !selector.nullable =>
-          throw NullComparisonWithNonNullableField(selector)
-        case UnOp(IsNull(), _) | UnOp(IsNotNull(), _) => ()
+          Left(NullComparisonWithNonNullableField(selector))
+        case UnOp(IsNull(), _) | UnOp(IsNotNull(), _) => Right(())
         // Check operator types and check that the operator is valid for the field type
         case BinOp(op, field, value) =>
           if (field.ty != value.ty) {
-            throw TypeMismatch(field, value)
-          }
+            Left(TypeMismatch(field, value))
+          } else {
 
-          // Eq and NotEq are generic
-          (op, field.ty) match {
-            case (Lt(), TString()) | (Gt(), TString()) | (Lte(), TString()) | (Gte(), TString()) =>
-              throw InvalidOperatorForType(op, field)
-            case (Like(), TInt()) =>
-              throw InvalidOperatorForType(op, field)
-            case _ => ()
+            // Eq and NotEq are generic
+            (op, field.ty) match {
+              case (Lt(), TString()) | (Gt(), TString()) | (Lte(), TString()) | (Gte(), TString()) =>
+                Left(InvalidOperatorForType(op, field))
+              case (Like(), TInt()) =>
+                Left(InvalidOperatorForType(op, field))
+              case _ => Right(())
+            }
           }
-        case And(left, right) => {
-          check(left)
-          check(right)
-        }
-        case Or(left, right) => {
-          check(left)
-          check(right)
-        }
+        case And(left, right) => check(left).flatMap(_ => check(right))
+        case Or(left, right)  => check(left).flatMap(_ => check(right))
       }
     }
 
@@ -116,25 +111,27 @@ object Query2 {
 
     final case class CompilerState(needsJoinedFields: Boolean)
 
-    val joinedFields = Set[FieldSelector](
+    private val joinedFields = Set[FieldSelector](
       FieldSelector.Post.Id(),
       FieldSelector.Post.Title(),
       FieldSelector.Post.Content(),
       FieldSelector.Post.ViewCount(),
     )
 
-    def getFields(condition: Condition): Set[FieldSelector] = {
-      def go(fields: Set[FieldSelector]): Condition => Set[FieldSelector] = {
-        case BinOp(_, field, _) => fields + field
-        case UnOp(_, field)     => fields + field
-        case And(left, right)   => go(fields)(left).union(go(fields)(right))
-        case Or(left, right)    => go(fields)(left).union(go(fields)(right))
+    def compile(condition: Condition): Fragment = {
+      val (state, conditionFragment) = compileCondition(condition).run(CompilerState(needsJoinedFields = false)).value
+      val fieldSelectors             = fr"select blog.id, blog.name, blog.slug from blog"
+      val joinedPosts = if (state.needsJoinedFields) {
+        fr"left join post on blog.id = post.blog_id"
+      } else {
+        Fragment.empty
       }
-      go(Set.empty)(condition)
+
+      fieldSelectors ++ joinedPosts ++ Fragment.const("where") ++ conditionFragment
     }
 
-    def compile(condition: Condition): Fragment = {
-      def compileCondition: Condition => State[CompilerState, Fragment] = {
+    def compileCondition(condition: Condition): State[CompilerState, Fragment] = {
+      condition match {
         case BinOp(op, field, value) =>
           for {
             _ <- if (joinedFields.contains(field)) {
@@ -162,15 +159,6 @@ object Query2 {
             rightFragment <- compileCondition(right)
           } yield Fragments.or(leftFragment, rightFragment)
       }
-      val (state, conditionFragment) = compileCondition(condition).run(CompilerState(needsJoinedFields = false)).value
-      val fieldSelectors             = fr"select blog.id, blog.name, blog.slug from blog"
-      val joinedPosts = if (state.needsJoinedFields) {
-        fr"left join post on blog.id = post.blog_id"
-      } else {
-        Fragment.empty
-      }
-
-      fieldSelectors ++ joinedPosts ++ Fragment.const("where") ++ conditionFragment
     }
 
     def compileBinOp(op: BinOpType, field: FieldSelector, value: Value): Fragment = {

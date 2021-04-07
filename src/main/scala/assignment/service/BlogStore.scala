@@ -34,9 +34,10 @@ object BlogStore extends UUIDDatabaseMapping {
       queryBlogs2(Query2.fromQuery(query)) // TODO: Unsafe
     }
 
+    // TODO: Move the type checker to the service layer?
     override def queryBlogs2(query: Query2.Condition): UIO[List[BlogRead]] = {
       for {
-        _ <- UIO(Query2.TypeChecker.check(query))
+        _ <- ZIO.fromEither(Query2.TypeChecker.check(query)).orDie
         sqlQuery = Query2.Compiler.compile(query)
         blogs <- trx.run(sqlQuery.query[BlogRead].to[List])
       } yield blogs
