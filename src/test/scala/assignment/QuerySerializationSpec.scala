@@ -4,7 +4,6 @@ import assignment.model._
 import assignment.dto.QueryBlogsRequest.queryCodec
 import io.circe.syntax._
 import java.util.UUID
-import zio._
 import zio.test._
 import zio.test.Assertion._
 import zio.test.junit.JUnitRunnableSpec

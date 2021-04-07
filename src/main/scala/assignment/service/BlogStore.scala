@@ -2,7 +2,7 @@ package assignment.service
 
 import assignment.model._
 import cats.syntax.functor._
-import doobie.{Fragment, Fragments}
+import doobie.Fragment
 import doobie.syntax.string._
 import zio._
 
