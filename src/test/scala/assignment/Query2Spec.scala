@@ -1,21 +1,26 @@
 package assignment
 
-import assignment.model.Query2.Compiler._
-import assignment.model.Query2.TypeChecker.{InvalidOperatorForType, NullComparisonWithNonNullableField, TypeMismatch}
 import assignment.model.Query2._
+import assignment.model.Query2.Compiler._
+import assignment.model.Query2.TypeChecker._
+import doobie.Fragment
 import doobie.syntax.string._
 import zio._
 import zio.test._
 import zio.test.Assertion._
 import zio.test.junit.JUnitRunnableSpec
 
-object QuerySpecSbtRunner extends QuerySpec
-class QuerySpec extends JUnitRunnableSpec {
+object QuerySpecSbtRunner extends Query2Spec
+class Query2Spec extends JUnitRunnableSpec {
 
   val blogId            = "blog1"
   val blogIdSelector    = FieldSelector.Blog.Id()
   val viewCountSelector = FieldSelector.Post.ViewCount()
   val postTitleSelector = FieldSelector.Post.Title()
+
+  def runCompiler(query: Condition): Fragment = {
+    compileCondition(query).run(CompilerState(needsJoinedFields = false)).value._2
+  }
 
   // TODO: Type check fields
   override def spec = suite("Query")(
@@ -33,7 +38,7 @@ class QuerySpec extends JUnitRunnableSpec {
 
         queriesAndFragments.foldLeft(assert(true)(equalTo(true))) {
           case (assertions, (query, expected)) =>
-            val renderedQuery = compile(query)
+            val renderedQuery = runCompiler(query)
 
             assertions && assert(renderedQuery.toString)(equalTo(expected.toString))
         }
@@ -43,7 +48,7 @@ class QuerySpec extends JUnitRunnableSpec {
           BinOp(Eq(), blogIdSelector, Value.Text(blogId)),
           BinOp(Gt(), viewCountSelector, Value.Number(0)),
         )
-        val renderedQuery = compile(query)
+        val renderedQuery = runCompiler(query)
 
         assert(renderedQuery.toString)(equalTo(fr"(blog.id = ${blogId} ) OR (post.view_count > ${0} )".toString))
       },
@@ -55,7 +60,7 @@ class QuerySpec extends JUnitRunnableSpec {
             UnOp(IsNotNull(), postTitleSelector),
           ),
         )
-        val renderedQuery = compile(query)
+        val renderedQuery = runCompiler(query)
 
         assert(renderedQuery.toString)(
           equalTo(fr"(blog.id = ${blogId} ) OR ((post.view_count > ${0} ) OR (post.title IS NOT NULL ) )".toString),
@@ -66,7 +71,7 @@ class QuerySpec extends JUnitRunnableSpec {
           BinOp(Eq(), blogIdSelector, Value.Text(blogId)),
           BinOp(Gt(), viewCountSelector, Value.Number(0)),
         )
-        val renderedQuery = compile(query)
+        val renderedQuery = runCompiler(query)
 
         assert(renderedQuery.toString)(equalTo(fr"(blog.id = ${blogId} ) AND (post.view_count > ${0} )".toString))
       },
@@ -78,7 +83,7 @@ class QuerySpec extends JUnitRunnableSpec {
             UnOp(IsNotNull(), postTitleSelector),
           ),
         )
-        val renderedQuery = compile(query)
+        val renderedQuery = runCompiler(query)
 
         assert(renderedQuery.toString)(
           equalTo(fr"(blog.id = ${blogId} ) AND ((post.view_count > ${0} ) AND (post.title IS NOT NULL ) )".toString),
@@ -92,7 +97,7 @@ class QuerySpec extends JUnitRunnableSpec {
             UnOp(IsNotNull(), postTitleSelector),
           ),
         )
-        val renderedQuery = compile(query)
+        val renderedQuery = runCompiler(query)
 
         assert(renderedQuery.toString)(
           equalTo(fr"(blog.id = ${blogId} ) OR ((post.view_count > ${0} ) AND (post.title IS NOT NULL ) )".toString),
@@ -106,7 +111,7 @@ class QuerySpec extends JUnitRunnableSpec {
             UnOp(IsNotNull(), postTitleSelector),
           ),
         )
-        val renderedQuery = compile(query)
+        val renderedQuery = runCompiler(query)
 
         assert(renderedQuery.toString)(
           equalTo(fr"(blog.id = ${blogId} ) AND ((post.view_count > ${0} ) OR (post.title IS NOT NULL ) )".toString),
@@ -114,32 +119,32 @@ class QuerySpec extends JUnitRunnableSpec {
       },
     ),
     suite("Type checker")(
-      testM("should not allow null comparison with non nullable fields") {
+      test("should not allow null comparison with non nullable fields") {
         val query = UnOp(IsNull(), blogIdSelector)
-        for {
-          error <- Task(TypeChecker.check(query)).either
-        } yield assert(error)(isLeft(equalTo(NullComparisonWithNonNullableField(blogIdSelector))))
+        val error = TypeChecker.check(query)
+
+        assert(error)(isLeft(equalTo(NullComparisonWithNonNullableField(blogIdSelector))))
       },
-      testM("should match the types of the two sides of binary operators") {
+      test("should match the types of the two sides of binary operators") {
         val value = Value.Number(1)
         val query = BinOp(Eq(), blogIdSelector, value)
-        for {
-          error <- Task(TypeChecker.check(query)).either
-        } yield assert(error)(isLeft(equalTo(TypeMismatch(blogIdSelector, value))))
+        val error = TypeChecker.check(query)
+
+        assert(error)(isLeft(equalTo(TypeMismatch(blogIdSelector, value))))
       },
-      testM("should not allow numerical arguments to string operators") {
+      test("should not allow numerical arguments to string operators") {
         val value = Value.Number(1)
         val query = BinOp(Like(), viewCountSelector, value)
-        for {
-          error <- Task(TypeChecker.check(query)).either
-        } yield assert(error)(isLeft(equalTo(InvalidOperatorForType(Like(), viewCountSelector))))
+        val error = TypeChecker.check(query)
+
+        assert(error)(isLeft(equalTo(InvalidOperatorForType(Like(), viewCountSelector))))
       },
-      testM("should not allow string arguments to numeric operators") {
+      test("should not allow string arguments to numeric operators") {
         val value = Value.Text("test")
         val query = BinOp(Lt(), blogIdSelector, value)
-        for {
-          error <- Task(TypeChecker.check(query)).either
-        } yield assert(error)(isLeft(equalTo(InvalidOperatorForType(Lt(), blogIdSelector))))
+        val error = TypeChecker.check(query)
+
+        assert(error)(isLeft(equalTo(InvalidOperatorForType(Lt(), blogIdSelector))))
       },
     ),
   )
