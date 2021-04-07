@@ -34,6 +34,8 @@ The dependencies are setup in [Layers](https://github.com/erdeszt/blog-assignmen
 
 The database schema is defined in [src/main/resources/db/migration](https://github.com/erdeszt/blog-assignment/tree/doc-links/src/main/resources/db/migration)
 
+The list of supported queries is defined in [Query](https://github.com/erdeszt/blog-assignment/blob/doc-links/src/main/scala/assignment/model/Query.scala#L3) and examples of the json format are located in the [QuerySerializationSpec](https://github.com/erdeszt/blog-assignment/blob/doc-links/src/test/scala/assignment/QuerySerializationSpec.scala#L22)
+
 ### Questions:
 
 * What were some of the reasons you chose the technology stack that you did?
