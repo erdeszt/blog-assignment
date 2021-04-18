@@ -1,10 +1,9 @@
 package assignment
 
-import assignment.dto.{QueryBlogsRequest, QueryBlogsResponse}
 import assignment.model.Blog
 import sttp.tapir.client.sttp._
 import sttp.client3.{ignore => _, _}
-import sttp.tapir.DecodeResult
+import sttp.model.StatusCode
 import zio._
 import zio.test._
 import zio.test.Assertion._
@@ -23,17 +22,15 @@ class WebSpec extends JUnitRunnableSpec {
   override def spec =
     suite("Web API")(
       suite("Query")(
-        testM("return an empty list when there are no blogs") {
-          val request = SttpClientInterpreter.toRequest(Routes.queryBlogs, Some(uri"http://localhost:8080"))
+        testM("return 404 when to blog does not exist") {
+          val request = SttpClientInterpreter.toRequest(Routes.getBlogById, Some(uri"http://localhost:8080"))
           val backend = HttpURLConnectionBackend()
           for {
-            response <- UIO(
-              request(QueryBlogsRequest(model.Query.ByBlogId(Blog.Id(UUID.randomUUID())), includePosts = false))
-                .send(backend),
-            )
-          } yield assert(response.body)(equalTo(DecodeResult.Value(Right(QueryBlogsResponse(List.empty)))))
+            blogId <- UIO(UUID.randomUUID()).map(Blog.Id)
+            response <- UIO(request((blogId, false)).send(backend))
+          } yield assert(response.code)(equalTo(StatusCode.NotFound))
         },
       ),
-    ) @@ ignore
+    ) //  @@ ignore
 
 }

@@ -1,17 +1,15 @@
 package assignment.service
 
 import assignment.model._
-import cats.data.NonEmptyList
 import cats.syntax.functor._
-import doobie.Fragments
 import doobie.syntax.string._
 import doobie.util.update.Update
 import zio._
 
 trait PostStore {
-  def createPost(post:           PostStore.Create):       Trx[Unit]
-  def createPosts(posts:         List[PostStore.Create]): Trx[Unit]
-  def getPostsByBlogIds(blogIds: List[Blog.Id]):          UIO[List[Post]]
+  def createPost(post:         PostStore.Create):       Trx[Unit]
+  def createPosts(posts:       List[PostStore.Create]): Trx[Unit]
+  def getPostsByBlogId(blogId: Blog.Id):                UIO[List[Post]]
 }
 
 object PostStore extends UUIDDatabaseMapping {
@@ -33,15 +31,11 @@ object PostStore extends UUIDDatabaseMapping {
       Update[Create]("insert into post (id, blog_id, title, content) value (?, ?, ?, ?)").updateMany(posts).void
     }
 
-    override def getPostsByBlogIds(blogIds: List[Blog.Id]): UIO[List[Post]] = {
-      NonEmptyList.fromList(blogIds) match {
-        case None => UIO(List.empty)
-        case Some(ids) =>
-          trx.run {
-            (fr"select id, blog_id, title, content, view_count from post where " ++ Fragments.in(fr"blog_id", ids))
-              .query[Post]
-              .to[List]
-          }
+    override def getPostsByBlogId(blogId: Blog.Id): UIO[List[Post]] = {
+      trx.run {
+        sql"select id, blog_id, title, content, view_count from post where blog_id = ${blogId}"
+          .query[Post]
+          .to[List]
       }
     }
 

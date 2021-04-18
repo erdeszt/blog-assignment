@@ -35,9 +35,13 @@ class ApiSpec extends JUnitRunnableSpec {
       )
     }
   }
-  val stores       = testDatabaseConfig >>> Layers.stores
-  val migration    = testDatabaseConfig >>> Migration.layer
-  val dependencies = (migration ++ (idRefLayer >+> FakeIdProvider.layer) ++ stores) >+> Api.layer
+  val stores    = testDatabaseConfig >>> Layers.stores
+  val migration = testDatabaseConfig >>> Migration.layer
+  val dependencies: ZLayer[Any, Nothing, Has[Migration] with Has[FakeIdProvider.Ref] with Has[IdProvider] with Has[
+    TransactionHandler,
+  ] with Has[
+    BlogStore,
+  ] with Has[PostStore] with Has[Api]] = (migration ++ (idRefLayer >+> FakeIdProvider.layer) ++ stores) >+> Api.layer
 
   val randomUUID: URIO[random.Random, UUID] = UIO(UUID.randomUUID())
 
@@ -181,108 +185,80 @@ class ApiSpec extends JUnitRunnableSpec {
             } yield assert(error)(isLeft(equalTo(EmptyPostContent())))
           },
         ),
-        suite("Query blogs")(
-          testM("should find a blog by id") {
-            for {
-              blogId <- randomUUID
-              postIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
-              posts = postIds.map(id => (None, Post.Content(s"Post: ${id}")))
-              _ <- FakeIdProvider.set(blogId :: postIds)
-
-              _ <- Api.createBlog(Blog.Name("test blog"), Blog.Slug("test-blog"), posts).toDomainError
-              blogs <- Api.queryBlogs(Query.ByBlogId(Blog.Id(blogId)), includePosts = false)
-            } yield assert(blogs)(hasSize(equalTo(1))) &&
-              assert(blogs.map(_.id.value))(hasSameElements(List(blogId))) &&
-              assert(blogs.head.posts)(isEmpty)
-          },
-          testM("should return the posts if requested") {
-            for {
-              blogId <- randomUUID
-              postIds <- ZIO.replicateM(10)(randomUUID).map(_.toList)
-              posts = postIds.map(id => (None, Post.Content(s"Post: ${id}")))
-              _ <- FakeIdProvider.set(blogId :: postIds)
-
-              _ <- Api.createBlog(Blog.Name("test blog"), Blog.Slug("test-blog"), posts).toDomainError
-              blogs <- Api.queryBlogs(Query.ByBlogId(Blog.Id(blogId)), includePosts = true)
-            } yield assert(blogs)(hasSize(equalTo(1))) &&
-              assert(blogs.head.posts.map(_.id.value))(hasSameElements(postIds))
-          },
-          testM("should find a blog by slug") {
-            val slug = Blog.Slug("test-blog")
+        suite("Get blog by id")(
+          testM("should get a blog when it exists") {
+            val name = Blog.Name("blog1")
+            val slug = Blog.Slug("slug1")
             for {
               blogId <- randomUUID
               _ <- FakeIdProvider.set(blogId)
 
-              _ <- Api.createBlog(Blog.Name("test blog"), slug, List.empty).toDomainError
-              blogs <- Api.queryBlogs(Query.ByBlogSlug(slug), includePosts = false)
-            } yield assert(blogs)(hasSize(equalTo(1)))
+              _ <- Api.createBlog(name, slug, List.empty).toDomainError
+              blog <- Api.getBlogById(Blog.Id(blogId), withPosts = false)
+            } yield assert(blog.id.value)(equalTo(blogId)) &&
+              assert(blog.name)(equalTo(name)) &&
+              assert(blog.slug)(equalTo(slug))
           },
-          testM("should find a blog by exact name") {
-            val name = Blog.Name("test blog")
-            for {
-              blogId <- randomUUID
-              _ <- FakeIdProvider.set(blogId)
-
-              _ <- Api.createBlog(name, Blog.Slug("test-blog"), List.empty).toDomainError
-              blogs <- Api.queryBlogs(Query.ByBlogName(name), includePosts = false)
-            } yield assert(blogs)(hasSize(equalTo(1)))
-          },
-          testM("should find a blog by partial name") {
-            for {
-              blogId <- randomUUID
-              _ <- FakeIdProvider.set(blogId)
-
-              _ <- Api.createBlog(Blog.Name("test blog"), Blog.Slug("test-blog"), List.empty).toDomainError
-              blogs <- Api.queryBlogs(Query.ByBlogName(Blog.Name("%test%")), includePosts = false)
-            } yield assert(blogs)(hasSize(equalTo(1)))
-          },
-          testM("should find a blog by exact post title") {
+          testM("should get the posts when requested") {
+            val postTitle   = Post.Title("t1")
+            val postContent = Post.Content("c1")
             for {
               blogId <- randomUUID
               postId <- randomUUID
               _ <- FakeIdProvider.set(List(blogId, postId))
 
               _ <- Api
-                .createBlog(
-                  Blog.Name("test blog"),
-                  Blog.Slug("test-blog"),
-                  List((Some(Post.Title("test title")), Post.Content("test content"))),
-                )
+                .createBlog(Blog.Name("blog1"), Blog.Slug("blog1"), List((Some(postTitle), postContent)))
                 .toDomainError
-              blogs <- Api.queryBlogs(Query.ByPostTitle(Post.Title("test title")), includePosts = false)
-            } yield assert(blogs)(hasSize(equalTo(1)))
+              blog <- Api.getBlogById(Blog.Id(blogId), withPosts = true)
+            } yield assert(blog.posts)(hasSize(equalTo(1))) &&
+              assert(blog.posts.head.title)(isSome(equalTo(postTitle))) &&
+              assert(blog.posts.head.content)(equalTo(postContent))
           },
-          testM("should find a blog by partial title") {
+          testM("should fail if the blog doesn't exist") {
+            for {
+              blogId <- randomUUID.map(Blog.Id)
+
+              error <- Api.getBlogById(blogId, withPosts = true).either
+            } yield assert(error)(isLeft(equalTo(BlogNotFound(blogId))))
+          },
+        ),
+        suite("Get blog by slug")(
+          testM("should get a blog when it exists") {
+            val name = Blog.Name("blog1")
+            val slug = Blog.Slug("slug1")
+            for {
+              blogId <- randomUUID
+              _ <- FakeIdProvider.set(blogId)
+
+              _ <- Api.createBlog(name, slug, List.empty).toDomainError
+              blog <- Api.getBlogBySlug(slug, withPosts = false)
+            } yield assert(blog.id.value)(equalTo(blogId)) &&
+              assert(blog.name)(equalTo(name)) &&
+              assert(blog.slug)(equalTo(slug))
+          },
+          testM("should get the posts when requested") {
+            val postTitle   = Post.Title("t1")
+            val postContent = Post.Content("c1")
+            val slug        = Blog.Slug("blog1")
             for {
               blogId <- randomUUID
               postId <- randomUUID
               _ <- FakeIdProvider.set(List(blogId, postId))
 
               _ <- Api
-                .createBlog(
-                  Blog.Name("test blog"),
-                  Blog.Slug("test-blog"),
-                  List((Some(Post.Title("test title")), Post.Content("test content"))),
-                )
+                .createBlog(Blog.Name("blog1"), slug, List((Some(postTitle), postContent)))
                 .toDomainError
-              blogs <- Api.queryBlogs(Query.ByPostTitle(Post.Title("%test%")), includePosts = false)
-            } yield assert(blogs)(hasSize(equalTo(1)))
+              blog <- Api.getBlogById(Blog.Id(blogId), withPosts = true)
+            } yield assert(blog.posts)(hasSize(equalTo(1))) &&
+              assert(blog.posts.head.title)(isSome(equalTo(postTitle))) &&
+              assert(blog.posts.head.content)(equalTo(postContent))
           },
-          testM("should find a blog by partial content") {
+          testM("should fail if the blog doesn't exist") {
+            val slug = Blog.Slug("whatever")
             for {
-              blogId <- randomUUID
-              postId <- randomUUID
-              _ <- FakeIdProvider.set(List(blogId, postId))
-
-              _ <- Api
-                .createBlog(
-                  Blog.Name("test blog"),
-                  Blog.Slug("test-blog"),
-                  List((Some(Post.Title("test title")), Post.Content("test content"))),
-                )
-                .toDomainError
-              blogs <- Api.queryBlogs(Query.ByPostContent(Post.Content("%test%")), includePosts = false)
-            } yield assert(blogs)(hasSize(equalTo(1)))
+              error <- Api.getBlogBySlug(slug, withPosts = true).either
+            } yield assert(error)(isLeft(equalTo(BlogSlugNotFound(slug))))
           },
         ),
       ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase)

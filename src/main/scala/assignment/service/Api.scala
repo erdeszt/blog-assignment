@@ -13,8 +13,9 @@ trait Api {
       slug:  Blog.Slug,
       posts: List[(Option[Post.Title], Post.Content)],
   ): IO[Api.CreateBlogError, (Blog.Id, List[Post.Id])]
-  def createPost(blogId: Blog.Id, title:      Option[Post.Title], content: Post.Content): IO[Api.CreatePostError, Post.Id]
-  def queryBlogs(query:  Query, includePosts: Boolean): UIO[List[Blog]]
+  def createPost(blogId:  Blog.Id, title:       Option[Post.Title], content: Post.Content): IO[Api.CreatePostError, Post.Id]
+  def getBlogById(blogId: Blog.Id, withPosts:   Boolean): IO[Api.GetBlogByIdError, Blog]
+  def getBlogBySlug(slug: Blog.Slug, withPosts: Boolean): IO[Api.GetBlogBySlugError, Blog]
 }
 
 object Api {
@@ -22,7 +23,9 @@ object Api {
   type PostValidationError = OneOf2[EmptyPostTitle, EmptyPostContent]
   type CreateBlogError =
     OneOf6[EmptyBlogName, EmptyBlogSlug, InvalidBlogSlug, BlogSlugAlreadyExists, EmptyPostTitle, EmptyPostContent]
-  type CreatePostError = OneOf3[BlogNotFound, EmptyPostTitle, EmptyPostContent]
+  type CreatePostError    = OneOf3[BlogNotFound, EmptyPostTitle, EmptyPostContent]
+  type GetBlogByIdError   = BlogNotFound
+  type GetBlogBySlugError = BlogSlugNotFound
 
   private val blogSlugFormat = "^[a-zA-Z][a-zA-Z0-9\\-]*$".r
 
@@ -40,7 +43,7 @@ object Api {
         _ <- ZIO.when(slug.value.isEmpty)(ZIO.fail(EmptyBlogSlug().embed))
         _ <- ZIO.unless(blogSlugFormat.matches(slug.value))(ZIO.fail(InvalidBlogSlug(slug).embed))
         _ <- ZIO.foreach_(posts) { case (title, content) => validatePost[CreateBlogError](title, content) }
-        _ <- ZIO.whenM(blogStore.queryBlogs(Query.ByBlogSlug(slug)).map(_.nonEmpty))(
+        _ <- ZIO.whenM(blogStore.getBySlug(slug).map(_.nonEmpty))(
           ZIO.fail(BlogSlugAlreadyExists(slug).embed),
         )
         blogId <- idProvider.generateId.map(Blog.Id)
@@ -71,24 +74,28 @@ object Api {
       } yield id
     }
 
-    override def queryBlogs(query: Query, includePosts: Boolean): UIO[List[Blog]] = {
+    override def getBlogById(blogId: Blog.Id, withPosts: Boolean): IO[GetBlogByIdError, Blog] = {
       for {
-        blogs <- blogStore.queryBlogs(query)
-        posts <- if (includePosts) {
-          postStore
-            .getPostsByBlogIds(blogs.map(_.id))
-            .map(_.groupBy(_.blogId))
-        } else {
-          UIO(Map.empty[Blog.Id, List[Post]])
-        }
-      } yield blogs.map { blog =>
-        Blog(
-          blog.id,
-          blog.name,
-          blog.slug,
-          posts.getOrElse(blog.id, List.empty),
-        )
-      }
+        blog <- blogStore.getById(blogId).someOrFail(BlogNotFound(blogId))
+        posts <- if (withPosts) postStore.getPostsByBlogId(blogId) else ZIO.succeed(List.empty)
+      } yield Blog(
+        blog.id,
+        blog.name,
+        blog.slug,
+        posts,
+      )
+    }
+
+    override def getBlogBySlug(slug: Blog.Slug, withPosts: Boolean): IO[Api.GetBlogBySlugError, Blog] = {
+      for {
+        blog <- blogStore.getBySlug(slug).someOrFail(BlogSlugNotFound(slug))
+        posts <- if (withPosts) postStore.getPostsByBlogId(blog.id) else ZIO.succeed(List.empty)
+      } yield Blog(
+        blog.id,
+        blog.name,
+        blog.slug,
+        posts,
+      )
     }
 
     def validatePost[E <: Coproduct](
@@ -122,8 +129,12 @@ object Api {
     ZIO.accessM(_.get.createPost(blogId, title, content))
   }
 
-  def queryBlogs(query: Query, includePosts: Boolean): URIO[Has[Api], List[Blog]] = {
-    ZIO.accessM(_.get.queryBlogs(query, includePosts))
+  def getBlogById(blogId: Blog.Id, withPosts: Boolean): ZIO[Has[Api], Api.GetBlogByIdError, Blog] = {
+    ZIO.accessM(_.get.getBlogById(blogId, withPosts))
+  }
+
+  def getBlogBySlug(slug: Blog.Slug, withPosts: Boolean): ZIO[Has[Api], Api.GetBlogBySlugError, Blog] = {
+    ZIO.accessM(_.get.getBlogBySlug(slug, withPosts))
   }
 
 }

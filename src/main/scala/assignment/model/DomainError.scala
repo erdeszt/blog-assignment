@@ -8,5 +8,6 @@ object DomainError {
   final case class EmptyPostTitle() extends DomainError("Post title was provided but it was empty")
   final case class EmptyPostContent() extends DomainError("Post content is empty")
   final case class BlogNotFound(blogId:        Blog.Id) extends DomainError("Blog not found")
+  final case class BlogSlugNotFound(slug:      Blog.Slug) extends DomainError("Blog slug not found")
   final case class BlogSlugAlreadyExists(slug: Blog.Slug) extends DomainError("Blog slug already exists")
 }
