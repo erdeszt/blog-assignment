@@ -115,9 +115,8 @@ object Api {
         for {
           blogs <- blogQuery
           posts <- if (withPosts == WithPosts.Yes) {
-            foreachPar[Has[TransactionHandler], Nothing, Blog.Id, List[Post], Collection](F.map(blogs)(_.id))(
-              Queries.GetPostsByBlogId.query,
-            ).map(posts => Monoid[List[Post]].combineAll(posts).groupBy(_.blogId))
+            foreachPar(F.map(blogs)(_.id))(Queries.GetPostsByBlogId.query)
+              .map(posts => Monoid[List[Post]].combineAll(posts).groupBy(_.blogId))
           } else {
             ZQuery.succeed(Map.empty[Blog.Id, List[Post]])
           }
