@@ -1,6 +1,6 @@
 package assignment
 
-import assignment.model.Blog
+import assignment.model.{Blog, WithPosts}
 import sttp.tapir.client.sttp._
 import sttp.client3.{ignore => _, _}
 import sttp.model.StatusCode
@@ -27,10 +27,10 @@ class WebSpec extends JUnitRunnableSpec {
           val backend = HttpURLConnectionBackend()
           for {
             blogId <- UIO(UUID.randomUUID()).map(Blog.Id)
-            response <- UIO(request((blogId, false)).send(backend))
+            response <- UIO(request((blogId, WithPosts.No)).send(backend))
           } yield assert(response.code)(equalTo(StatusCode.NotFound))
         },
       ),
-    ) //  @@ ignore
+    ) @@ ignore
 
 }

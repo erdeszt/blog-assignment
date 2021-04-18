@@ -194,7 +194,7 @@ class ApiSpec extends JUnitRunnableSpec {
               _ <- FakeIdProvider.set(blogId)
 
               _ <- Api.createBlog(name, slug, List.empty).toDomainError
-              blog <- Api.getBlogById(Blog.Id(blogId), withPosts = false)
+              blog <- Api.getBlogById(Blog.Id(blogId), WithPosts.No)
             } yield assert(blog.id.value)(equalTo(blogId)) &&
               assert(blog.name)(equalTo(name)) &&
               assert(blog.slug)(equalTo(slug))
@@ -210,7 +210,7 @@ class ApiSpec extends JUnitRunnableSpec {
               _ <- Api
                 .createBlog(Blog.Name("blog1"), Blog.Slug("blog1"), List((Some(postTitle), postContent)))
                 .toDomainError
-              blog <- Api.getBlogById(Blog.Id(blogId), withPosts = true)
+              blog <- Api.getBlogById(Blog.Id(blogId), WithPosts.Yes)
             } yield assert(blog.posts)(hasSize(equalTo(1))) &&
               assert(blog.posts.head.title)(isSome(equalTo(postTitle))) &&
               assert(blog.posts.head.content)(equalTo(postContent))
@@ -219,7 +219,7 @@ class ApiSpec extends JUnitRunnableSpec {
             for {
               blogId <- randomUUID.map(Blog.Id)
 
-              error <- Api.getBlogById(blogId, withPosts = true).either
+              error <- Api.getBlogById(blogId, WithPosts.No).either
             } yield assert(error)(isLeft(equalTo(BlogNotFound(blogId))))
           },
         ),
@@ -232,7 +232,7 @@ class ApiSpec extends JUnitRunnableSpec {
               _ <- FakeIdProvider.set(blogId)
 
               _ <- Api.createBlog(name, slug, List.empty).toDomainError
-              blog <- Api.getBlogBySlug(slug, withPosts = false)
+              blog <- Api.getBlogBySlug(slug, WithPosts.No)
             } yield assert(blog.id.value)(equalTo(blogId)) &&
               assert(blog.name)(equalTo(name)) &&
               assert(blog.slug)(equalTo(slug))
@@ -249,7 +249,7 @@ class ApiSpec extends JUnitRunnableSpec {
               _ <- Api
                 .createBlog(Blog.Name("blog1"), slug, List((Some(postTitle), postContent)))
                 .toDomainError
-              blog <- Api.getBlogById(Blog.Id(blogId), withPosts = true)
+              blog <- Api.getBlogById(Blog.Id(blogId), WithPosts.Yes)
             } yield assert(blog.posts)(hasSize(equalTo(1))) &&
               assert(blog.posts.head.title)(isSome(equalTo(postTitle))) &&
               assert(blog.posts.head.content)(equalTo(postContent))
@@ -257,8 +257,30 @@ class ApiSpec extends JUnitRunnableSpec {
           testM("should fail if the blog doesn't exist") {
             val slug = Blog.Slug("whatever")
             for {
-              error <- Api.getBlogBySlug(slug, withPosts = true).either
+              error <- Api.getBlogBySlug(slug, WithPosts.No).either
             } yield assert(error)(isLeft(equalTo(BlogSlugNotFound(slug))))
+          },
+        ),
+        suite("get blogs")(
+          testM("should return an empty list when there are no blogs") {
+            for {
+              blogs <- Api.getBlogs(WithPosts.No)
+            } yield assert(blogs)(isEmpty)
+          },
+          testM("should return blogs") {
+            val numberOfBlogs = 5
+            for {
+              blogIds <- ZIO.replicateM(numberOfBlogs)(randomUUID)
+              _ <- FakeIdProvider.set(blogIds.toList)
+              _ <- ZIO
+                .foreach_(blogIds) { id =>
+                  Api.createBlog(Blog.Name(s"blog-${id}"), Blog.Slug(s"slug-${id}"), List.empty)
+                }
+                .toDomainError
+
+              blogs <- Api.getBlogs(WithPosts.No)
+            } yield assert(blogs)(hasSize(equalTo(numberOfBlogs))) &&
+              assert(blogs.map(_.id.value))(hasSameElements(blogIds))
           },
         ),
       ) @@ before(FakeIdProvider.set(Nil) *> cleanDatabase)

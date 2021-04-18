@@ -6,8 +6,9 @@ import doobie.syntax.string._
 import zio._
 
 trait BlogStore {
-  def createBlog(id:  Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit]
-  def getById(id:     Blog.Id): UIO[Option[BlogStore.BlogRead]]
+  def createBlog(id: Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit]
+  def getAll: UIO[List[BlogStore.BlogRead]]
+  def getById(id:     Blog.Id):   UIO[Option[BlogStore.BlogRead]]
   def getBySlug(slug: Blog.Slug): UIO[Option[BlogStore.BlogRead]]
 }
 
@@ -23,6 +24,10 @@ object BlogStore extends UUIDDatabaseMapping {
 
     override def createBlog(id: Blog.Id, name: Blog.Name, slug: Blog.Slug): Trx[Unit] = {
       sql"insert into blog (id, name, slug) values (${id}, ${name}, ${slug})".update.run.void
+    }
+
+    override def getAll: UIO[List[BlogStore.BlogRead]] = {
+      trx.run(sql"select id, name, slug from blog".query[BlogRead].to[List])
     }
 
     override def getById(id: Blog.Id): UIO[Option[BlogStore.BlogRead]] = {

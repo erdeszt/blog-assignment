@@ -1,5 +1,14 @@
 ## Blog assignment
 
+# TODO:
+- ZQuery
+- Auth
+- Pagination
+- Graphql
+- Clients
+    - sttp
+    - graphql
+
 ### Build, run & test:
 
 *Needs a running mysql server*

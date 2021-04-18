@@ -1,5 +1,8 @@
 package assignment.model
 
+import io.circe.generic.semiauto._
+import io.circe.Codec
+
 import java.util.UUID
 
 final case class Post(
@@ -17,9 +20,10 @@ object Post {
   final case class Content(value:   String) extends Newtype[String]
   final case class ViewCount(value: Long) extends Newtype[Long]
 
-  implicit val idCodec        = Newtype.deriveCireCodec(Id)
-  implicit val titleCodec     = Newtype.deriveCireCodec(Title)
-  implicit val contentCodec   = Newtype.deriveCireCodec(Content)
-  implicit val viewCountCodec = Newtype.deriveCireCodec(ViewCount)
+  implicit val idCodec:        Codec[Id]        = Newtype.deriveCireCodec(Id)
+  implicit val titleCodec:     Codec[Title]     = Newtype.deriveCireCodec(Title)
+  implicit val contentCodec:   Codec[Content]   = Newtype.deriveCireCodec(Content)
+  implicit val viewCountCodec: Codec[ViewCount] = Newtype.deriveCireCodec(ViewCount)
+  implicit val jsonCodec:      Codec[Post]      = deriveCodec[Post]
 
 }

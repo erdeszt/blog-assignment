@@ -7,7 +7,6 @@ import cats.syntax.all._
 import io.circe.generic.semiauto.deriveCodec
 import org.http4s._
 import sttp.model.StatusCode
-//import sttp.tapir._
 import sttp.tapir.CodecFormat.TextPlain
 import sttp.tapir.{Codec, Schema}
 import sttp.tapir.generic.auto._
@@ -33,8 +32,6 @@ object Routes {
   implicit val errorEncoder            = deriveCodec[ErrorResponse]
   implicit val badRequestResponseCodec = deriveCodec[BadRequestResponse]
   implicit val notFoundResponseCodec   = deriveCodec[NotFoundResponse]
-  implicit val postJsonCodec           = deriveCodec[Post]
-  implicit val blogJsonCodec           = deriveCodec[Blog]
 
   implicit val blogIdSchema: Schema[Blog.Id] =
     Schema.schemaForUUID.map(raw => Some(Blog.Id(raw)))(_.value)
@@ -58,6 +55,10 @@ object Routes {
     sttp.tapir.DecodeResult.Value(Blog.Slug(raw))
   })(_.value)
 
+  implicit val withPostsCodec: Codec[String, WithPosts, TextPlain] = Codec.boolean.mapDecode[WithPosts]({ raw =>
+    sttp.tapir.DecodeResult.Value(if (raw) WithPosts.Yes else WithPosts.No)
+  })(_ == WithPosts.Yes)
+
   val createBlog: ZEndpoint[CreateBlogRequest, ErrorResponse, CreateBlogResponse] =
     endpoint.post
       .in("blog")
@@ -65,10 +66,10 @@ object Routes {
       .out(jsonBody[CreateBlogResponse])
       .errorOut(oneOf[ErrorResponse](statusMapping(StatusCode.BadRequest, jsonBody[ErrorResponse])))
 
-  val createPost: ZEndpoint[CreatePostForBlogRequest, ErrorResponse, CreatePostResponse] =
+  val createPost: ZEndpoint[(Blog.Id, CreatePostRequest), ErrorResponse, CreatePostResponse] =
     endpoint.post
-      .in("post")
-      .in(jsonBody[CreatePostForBlogRequest])
+      .in("blog" / path[Blog.Id]("blogId"))
+      .in(jsonBody[CreatePostRequest])
       .out(jsonBody[CreatePostResponse])
       .errorOut(
         oneOf[ErrorResponse](
@@ -77,9 +78,14 @@ object Routes {
         ),
       )
 
-  val getBlogById: ZEndpoint[(Blog.Id, Boolean), ErrorResponse, Blog] =
+  val getBlogs: ZEndpoint[WithPosts, Unit, List[Blog]] =
     endpoint.get
-      .in("blog" / path[Blog.Id]("blogId") / query[Boolean]("withPosts"))
+      .in("blog" / query[WithPosts]("withPosts"))
+      .out(jsonBody[List[Blog]])
+
+  val getBlogById: ZEndpoint[(Blog.Id, WithPosts), ErrorResponse, Blog] =
+    endpoint.get
+      .in("blog" / path[Blog.Id]("blogId") / query[WithPosts]("withPosts"))
       .out(jsonBody[Blog])
       .errorOut(
         oneOf[ErrorResponse](
@@ -87,9 +93,9 @@ object Routes {
         ),
       )
 
-  val getBlogBySlug: ZEndpoint[(Blog.Slug, Boolean), ErrorResponse, Blog] =
+  val getBlogBySlug: ZEndpoint[(Blog.Slug, WithPosts), ErrorResponse, Blog] =
     endpoint.get
-      .in("blog" / "slug" / path[Blog.Slug]("slug") / query[Boolean]("withPosts"))
+      .in("blog" / "slug" / path[Blog.Slug]("slug") / query[WithPosts]("withPosts"))
       .out(jsonBody[Blog])
       .errorOut(
         oneOf[ErrorResponse](
@@ -120,11 +126,15 @@ object Routes {
             CreateBlogResponse(blogId, postIds)
         }
     }
-    val createPostRoute = createPost.zServerLogic { request =>
-      Api
-        .createPost(request.blogId, request.create.title, request.create.content)
-        .handleDomainErrors(errorHandler)
-        .map(CreatePostResponse(_))
+    val createPostRoute = createPost.zServerLogic {
+      case (blogId, request) =>
+        Api
+          .createPost(blogId, request.title, request.content)
+          .handleDomainErrors(errorHandler)
+          .map(CreatePostResponse(_))
+    }
+    val getBlogsRoute = getBlogs.zServerLogic { withPosts =>
+      Api.getBlogs(withPosts)
     }
     val getBlogByIdRoute = getBlogById.zServerLogic {
       case (blogId, withPosts) =>
@@ -140,7 +150,7 @@ object Routes {
     }
 
     ZHttp4sServerInterpreter
-      .from(List(createBlogRoute, createPostRoute, getBlogByIdRoute, getBlogBySlugRoute))
+      .from(List(createBlogRoute, createPostRoute, getBlogByIdRoute, getBlogBySlugRoute, getBlogsRoute))
       .toRoutes <+>
       new SwaggerHttp4s(Routes.yaml).routes[RIO[Has[Api] with Clock, *]]
   }
@@ -151,7 +161,7 @@ object Routes {
 
     OpenAPIDocsInterpreter
       .toOpenAPI(
-        List(createBlog, createPost, getBlogById, getBlogBySlug),
+        List(createBlog, createPost, getBlogById, getBlogBySlug, getBlogs),
         "Blog API",
         "1.0",
       )
