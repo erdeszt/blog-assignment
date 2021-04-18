@@ -24,4 +24,8 @@ object TransactionHandler {
   val layer: URLayer[Has[Transactor[Task]], Has[TransactionHandler]] =
     ZLayer.fromService(Live)
 
+  def run[T](transaction: Trx[T]): URIO[Has[TransactionHandler], T] = {
+    ZIO.accessM(_.get.run(transaction))
+  }
+
 }

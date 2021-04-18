@@ -14,7 +14,7 @@ import sttp.tapir.json.circe._
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
 import sttp.tapir.ztapir._
 import sttp.tapir.swagger.http4s.SwaggerHttp4s
-import zio._
+import zio.{query => _, _}
 import zio.clock.Clock
 import zio.interop.catz._
 

@@ -3,7 +3,7 @@ import com.typesafe.sbt.SbtNativePackager.Docker
 val circeVersion  = "0.13.0"
 val http4sVersion = "0.21.21"
 val tapirVersion  = "0.17.9"
-val zioVersion    = "1.0.5"
+val zioVersion    = "1.0.6"
 
 lazy val root = project
   .in(file("."))
@@ -28,6 +28,7 @@ lazy val root = project
       "com.github.jatcwang" %% "hotpotato-core" % "0.1.1",
       "dev.zio" %% "zio" % zioVersion,
       "dev.zio" %% "zio-interop-cats" % "2.4.0.0",
+      "dev.zio" %% "zio-query" % "0.2.7",
       "dev.zio" %% "zio-test" % zioVersion % Test,
       "dev.zio" %% "zio-test-sbt" % zioVersion % Test,
       "dev.zio" %% "zio-test-junit" % zioVersion % Test,
