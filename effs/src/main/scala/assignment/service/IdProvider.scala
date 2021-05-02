@@ -8,25 +8,25 @@ import org.atnos.eff.interpret._
 
 import java.util.UUID
 
-sealed trait IdProviderOp[+A]
-final case class GenerateId() extends IdProviderOp[UUID]
-
 /**
   * Interface for generating unique identifiers to enable controlling the ids during tests
   */
 object IdProvider {
 
-  type _idProvider[R] = IdProviderOp |= R
+  sealed trait Op[+A]
+  final case class GenerateId() extends Op[UUID]
+
+  type _idProvider[R] = Op |= R
 
   def generateId[R: _idProvider]: Eff[R, UUID] = {
-    Eff.send[IdProviderOp, R, UUID](GenerateId())
+    Eff.send[Op, R, UUID](GenerateId())
   }
 
   def evalIdProvider[R, U, A](
       effect:   Eff[R, A],
-  )(implicit m: Member.Aux[IdProviderOp, R, U], io: _io[U]): Eff[U, A] = {
-    translate(effect)(new Translate[IdProviderOp, U] {
-      override def apply[X](op: IdProviderOp[X]): Eff[U, X] = {
+  )(implicit m: Member.Aux[Op, R, U], io: _io[U]): Eff[U, A] = {
+    translate(effect)(new Translate[Op, U] {
+      override def apply[X](op: Op[X]): Eff[U, X] = {
         op match {
           case GenerateId() => ioDelay(UUID.randomUUID())
         }

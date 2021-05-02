@@ -17,9 +17,11 @@ import org.http4s.implicits._
 import shapeless.ops.coproduct.Unifier
 import shapeless.Coproduct
 
-import java.util.UUID
-
 object Routes extends CirceEntityDecoder with CirceEntityEncoder {
+
+  type App[E <: Coproduct, A] =
+    Eff[Fx.fx6[IO, IdProvider.Op, BlogStore.Op, PostStore.Op, TransactionHandler.Op, Either[E, *]], A]
+
   final case class ErrorResponse(
       code:    Int,
       message: String,
@@ -27,32 +29,31 @@ object Routes extends CirceEntityDecoder with CirceEntityEncoder {
 
   implicit val errorEncoder = deriveCodec[ErrorResponse]
 
-  def evaluate[E, A](trx: Transactor[IO])(
-      effect:             Eff[Fx.fx5[IO, IdProviderOp, BlogStoreOp, PostStoreOp, Either[E, *]], A],
-  ): IO[Either[E, A]] = {
-    IOEffect.to(
-      either.runEither(
-        PostStore.evalPostStore(trx)(
-          BlogStore.evalBlogStore(trx)(
-            IdProvider.evalIdProvider(effect),
-          ),
-        ),
-      ),
-    )
-  }
-
   def run[E <: Coproduct, A](trx: Transactor[IO])(
-      effect:                     Eff[Fx.fx5[IO, IdProviderOp, BlogStoreOp, PostStoreOp, Either[E, *]], A],
+      effect:                     App[E, A],
   )(implicit unifier:             Unifier.Aux[E, DomainError]): Runner[E, A] = new Runner(trx, effect, unifier)
 
   class Runner[E <: Coproduct, A](
       trx:     Transactor[IO],
-      effect:  Eff[Fx.fx5[IO, IdProviderOp, BlogStoreOp, PostStoreOp, Either[E, *]], A],
+      effect:  App[E, A],
       unifier: Unifier.Aux[E, DomainError],
   ) {
+    def evaluate: IO[Either[E, A]] = {
+      IOEffect.to(
+        either.runEither(
+          TransactionHandler.evalTransactionHandler(trx)(
+            PostStore.evalPostStore(
+              BlogStore.evalBlogStore(
+                IdProvider.evalIdProvider(effect),
+              ),
+            ),
+          ),
+        ),
+      )
+    }
     def toResponse(implicit encoder: EntityEncoder[IO, A]): IO[Response[IO]] = to(identity)
     def to[B: EntityEncoder[IO, *]](transform: A => B): IO[Response[IO]] = {
-      evaluate[E, A](trx)(effect).map(_.leftMap(unifier(_))).flatMap {
+      evaluate.map(_.leftMap(unifier(_))).flatMap {
         case Left(error) =>
           error match {
             case DomainError.BlogNotFound(blogId) => BadRequest(ErrorResponse(1, s"Blog: `${blogId.value}` not found"))

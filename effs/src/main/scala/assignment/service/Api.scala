@@ -26,9 +26,9 @@ object Api {
 
   private val blogSlugFormat = "^[a-zA-Z][a-zA-Z0-9\\-]*$".r
 
-  type _createPostError[R] = Either[CreatePostError, *] |= R
+  type _error[E <: Coproduct, R] = Either[E, *] |= R
 
-  def createPost[R: _idProvider: _blogStore: _postStore: _createPostError](
+  def createPost[R: _idProvider: _blogStore: _postStore: _error[CreatePostError, *]: _trx](
       blogId:  Blog.Id,
       title:   Option[Post.Title],
       content: Post.Content,
@@ -39,7 +39,8 @@ object Api {
       _ <- BlogStore.getById(blogId).flatMap(either.optionEither(_, BlogNotFound(blogId).embed))
       id <- IdProvider.generateId.map(Post.Id)
       // TODO: EffT?
-      _ <- PostStore.createPost(PostStore.Create(id, blogId, title, content))
+      createPostTrx <- PostStore.createPost(PostStore.Create(id, blogId, title, content))
+      _ <- TransactionHandler.run(createPostTrx)
     } yield id
   }
 
@@ -49,8 +50,8 @@ object Api {
   ): Either[PostValidationError, Unit] = {
     implicit val embedder = Embedder.make[PostValidationError]
     for {
-      _ <- Either.cond(title.exists(_.value.isEmpty), (), EmptyPostTitle().embed)
-      _ <- Either.cond(content.value.isEmpty, (), EmptyPostContent().embed)
+      _ <- Either.cond(!title.exists(_.value.isEmpty), (), EmptyPostTitle().embed)
+      _ <- Either.cond(content.value.nonEmpty, (), EmptyPostContent().embed)
     } yield ()
   }
 
