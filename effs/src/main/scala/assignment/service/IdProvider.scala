@@ -34,4 +34,8 @@ object IdProvider {
     })
   }
 
+  implicit class IdProviderEvaluator[R, U, A](effect: Eff[R, A])(implicit m: Member.Aux[Op, R, U], io: _io[U]) {
+    def runIdProvider: Eff[U, A] = evalIdProvider(effect)
+  }
+
 }

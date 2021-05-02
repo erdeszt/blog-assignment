@@ -30,4 +30,11 @@ object TransactionHandler {
     })
   }
 
+  implicit class TransactionHandlerEvaluator[R, U, A](effect: Eff[R, A])(
+      implicit member:                                        Member.Aux[Op, R, U],
+      io:                                                     _io[U],
+  ) {
+    def runTransactionHandler(trx: Transactor[IO]): Eff[U, A] = evalTransactionHandler(trx)(effect)
+  }
+
 }

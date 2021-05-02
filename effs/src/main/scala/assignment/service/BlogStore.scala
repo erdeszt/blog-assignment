@@ -47,4 +47,8 @@ object BlogStore extends UUIDDatabaseMapping {
     })
   }
 
+  implicit class BlogStoreEvaluator[R, U, A](effect: Eff[R, A])(implicit member: Member.Aux[Op, R, U], trx: _trx[U]) {
+    def runBlogStore: Eff[U, A] = evalBlogStore(effect)
+  }
+
 }

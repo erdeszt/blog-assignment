@@ -26,8 +26,6 @@ object Api {
 
   private val blogSlugFormat = "^[a-zA-Z][a-zA-Z0-9\\-]*$".r
 
-  type _error[E <: Coproduct, R] = Either[E, *] |= R
-
   def createPost[R: _idProvider: _blogStore: _postStore: _error[CreatePostError, *]: _trx](
       blogId:  Blog.Id,
       title:   Option[Post.Title],

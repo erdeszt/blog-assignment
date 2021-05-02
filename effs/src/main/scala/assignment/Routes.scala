@@ -9,6 +9,7 @@ import cats.syntax.either._
 import doobie._
 import io.circe.generic.semiauto.deriveCodec
 import org.atnos.eff._
+import org.atnos.eff.syntax.either._
 import org.atnos.eff.addon.cats.effect.IOEffect
 import org.http4s._
 import org.http4s.dsl.io._
@@ -39,17 +40,11 @@ object Routes extends CirceEntityDecoder with CirceEntityEncoder {
       unifier: Unifier.Aux[E, DomainError],
   ) {
     def evaluate: IO[Either[E, A]] = {
-      IOEffect.to(
-        either.runEither(
-          TransactionHandler.evalTransactionHandler(trx)(
-            PostStore.evalPostStore(
-              BlogStore.evalBlogStore(
-                IdProvider.evalIdProvider(effect),
-              ),
-            ),
-          ),
-        ),
-      )
+      IOEffect.to {
+        effect.runIdProvider.runBlogStore.runPostStore
+          .runTransactionHandler(trx)
+          .runEither[E]
+      }
     }
     def toResponse(implicit encoder: EntityEncoder[IO, A]): IO[Response[IO]] = to(identity)
     def to[B: EntityEncoder[IO, *]](transform: A => B): IO[Response[IO]] = {

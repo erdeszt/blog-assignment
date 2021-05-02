@@ -44,4 +44,8 @@ object PostStore extends UUIDDatabaseMapping {
     })
   }
 
+  implicit class PostStoreEvaluator[R, U, A](effect: Eff[R, A])(implicit m: Member.Aux[Op, R, U]) {
+    def runPostStore: Eff[U, A] = evalPostStore(effect)
+  }
+
 }

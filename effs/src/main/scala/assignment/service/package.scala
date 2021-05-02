@@ -2,6 +2,7 @@ package assignment
 
 import assignment.model.DomainError
 import doobie._
+import org.atnos.eff._
 import shapeless.Coproduct
 import shapeless.ops.coproduct.Unifier
 //import zio._
@@ -12,6 +13,8 @@ package object service {
     * Database transaction effect type
     */
   type Trx[T] = ConnectionIO[T]
+
+  type _error[E <: Coproduct, R] = Either[E, *] |= R
 
   /**
     * Error handling extension methods for effects with `Coproduct` errors where all the errors are `DomainError`s
