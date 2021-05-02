@@ -1,8 +1,7 @@
 package assignment
 
-import assignment.service.Api
 import cats.effect._
-import doobie.{ExecutionContexts, Transactor}
+import doobie.Transactor
 import org.http4s.implicits._
 import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeServerBuilder

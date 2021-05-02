@@ -2,8 +2,6 @@ package assignment.service
 
 import org.atnos.eff._
 import org.atnos.eff.addon.cats.effect.IOEffect._
-import org.atnos.eff.all._
-import org.atnos.eff.addon.cats.effect._
 import org.atnos.eff.interpret._
 
 import java.util.UUID

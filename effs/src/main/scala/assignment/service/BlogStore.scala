@@ -2,14 +2,8 @@ package assignment.service
 
 import assignment.model._
 import assignment.service.TransactionHandler._trx
-import cats.effect.IO
-import cats.free.Free
-import doobie._
-import doobie.free.connection
 import doobie.syntax.string._
-import doobie.syntax.connectionio._
 import org.atnos.eff._
-import org.atnos.eff.addon.cats.effect.IOEffect._
 import org.atnos.eff.interpret._
 
 object BlogStore extends UUIDDatabaseMapping {

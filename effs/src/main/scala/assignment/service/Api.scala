@@ -1,19 +1,14 @@
 package assignment.service
 
-import assignment.dto.CreatePostRequest
 import assignment.model.DomainError._
 import assignment.model._
 import assignment.service.IdProvider._idProvider
 import assignment.service.BlogStore._blogStore
 import assignment.service.PostStore._postStore
 import assignment.service.TransactionHandler._trx
-import cats.effect.IO
 import hotpotato._
-import org.http4s.dsl.io._
 import cats.syntax.either._
-import doobie.Transactor
 import org.atnos.eff._
-import org.http4s.HttpRoutes
 import shapeless.Coproduct
 import shapeless.ops.coproduct.Basis
 

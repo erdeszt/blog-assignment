@@ -1,14 +1,9 @@
 package assignment.service
 
 import assignment.model._
-import cats.effect.IO
 import cats.syntax.functor._
-import doobie._
 import doobie.syntax.string._
-import doobie.syntax.connectionio._
-import doobie.util.update.Update
 import org.atnos.eff._
-import org.atnos.eff.addon.cats.effect.IOEffect._
 import org.atnos.eff.interpret._
 
 object PostStore extends UUIDDatabaseMapping {

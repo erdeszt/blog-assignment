@@ -14,7 +14,6 @@ import org.atnos.eff.addon.cats.effect.IOEffect
 import org.http4s._
 import org.http4s.dsl.io._
 import org.http4s.circe._
-import org.http4s.implicits._
 import shapeless.ops.coproduct.Unifier
 import shapeless.Coproduct
 
@@ -39,23 +38,26 @@ object Routes extends CirceEntityDecoder with CirceEntityEncoder {
       effect:  App[E, A],
       unifier: Unifier.Aux[E, DomainError],
   ) {
-    def evaluate: IO[Either[E, A]] = {
-      IOEffect.to {
-        effect.runIdProvider.runBlogStore.runPostStore
-          .runTransactionHandler(trx)
-          .runEither[E]
-      }
-    }
     def toResponse(implicit encoder: EntityEncoder[IO, A]): IO[Response[IO]] = to(identity)
     def to[B: EntityEncoder[IO, *]](transform: A => B): IO[Response[IO]] = {
-      evaluate.map(_.leftMap(unifier(_))).flatMap {
-        case Left(error) =>
-          error match {
-            case DomainError.BlogNotFound(blogId) => BadRequest(ErrorResponse(1, s"Blog: `${blogId.value}` not found"))
-            case _                                => InternalServerError(ErrorResponse(666, s"Error not handled: ${error}"))
-          }
-        case Right(ok) => Ok(transform(ok))
-      }
+      // Translate all the effects to _io, run it in IO then unify all the errors into DomainError
+      IOEffect
+        .to {
+          effect.runIdProvider.runBlogStore.runPostStore
+            .runTransactionHandler(trx)
+            .runEither[E]
+        }
+        .map(_.leftMap(unifier(_)))
+        .flatMap {
+          case Left(error) =>
+            error match {
+              case DomainError.BlogNotFound(blogId) =>
+                BadRequest(ErrorResponse(1, s"Blog: `${blogId.value}` not found"))
+              case _ =>
+                InternalServerError(ErrorResponse(666, s"Error not handled: ${error}"))
+            }
+          case Right(ok) => Ok(transform(ok))
+        }
     }
   }
 
